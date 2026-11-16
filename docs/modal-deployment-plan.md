@@ -1,6 +1,6 @@
 # Cloud 3D Studio: Modal deployment plan
 
-Status: proposed implementation plan, prepared November 9, 2026. No Modal deployment has been made.
+Updated direction, November 16, 2026: **CAD conversion is the first working service in the shared Cloud 3D Studio project.** See the [current goals and milestones](conversion-roadmap.md), [format roadmap](formats.md) and [operations guide](operations.md). Reuse the existing Modal workspace and Auto3D's account/storage infrastructure. The Blender-specific phases below remain a later roadmap; the November 9 connectivity observations are historical, not a current deployment diagnosis. No Modal deployment has been performed by this implementation.
 
 ## 1. Goal and initial scope
 
