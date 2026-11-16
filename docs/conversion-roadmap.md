@@ -1,6 +1,6 @@
 # Shared CAD conversion: goals and milestones
 
-Updated November 16, 2026. This supersedes the Blender-first ordering in the original deployment plan while retaining Blender as a later service.
+Updated November 16, 2026. This supersedes the Blender-first ordering in the original deployment plan while retaining Blender as a later service. The **0.2.0** follow-up adds a Supabase Vault credential bridge and protected metadata gateway; see [setup](modal-credentials.md). M2 still requires real credentials, permitted egress and account cost verification. This does not complete the M3 CAD job connector.
 
 ## Goals
 
