@@ -1,5 +1,7 @@
 # Modal credentials from Auto3D's Supabase Vault
 
+After saving the Vault entry, follow the [manual GitHub connection check](modal-connection-check.md) to authenticate from a trusted runner without copying Modal tokens out of Vault.
+
 Cloud 3D Studio **0.2.0** adds a lightweight connection gateway and trusted deployment runner. Both are prepared for review; neither has been deployed to Modal. The native conversion contract remains STEP (mm), GLB (m), STL (mm) and the provenance manifest.
 
 Auto3D **0.75.0** owns the administrator form and Pages API. It stores complete target/token pairs as encrypted Supabase Vault secrets using separate `production` / `preview` profiles and `deployment` / `runtime` purposes. See the [Auto3D setup guide](https://github.com/yuttana858/Auto3D/blob/feat/modal-credential-bridge/docs/modal-credentials.md) for the installed service-role RPCs and direct Vault-entry template. Never save plaintext credentials in Git, SQL history, chat or command arguments.
