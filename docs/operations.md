@@ -1,8 +1,8 @@
 # Operations and validation evidence
 
-## Native progress and failure reporting — 0.3.3 candidate
+## Native progress and failure reporting — 0.3.3
 
-Adds bounded phase/count telemetry and fixed failure categories. Public source-byte, mesh-face and acknowledged-file counts support measured stage percentages; unknown work stays indeterminate. Private server diagnostics contain only an exception category and up to four package code-file/line positions. Exception messages, source lines, local variables and customer geometry are excluded. The actual reported X_T failed with the older generic code; its cause is pending a normal private-pipeline retry after rollout. No customer CAD was downloaded or checked into source control. Earlier successful STEP calibration is not acceptance of this Parasolid source.
+Adds bounded phase/count telemetry and fixed failure categories. Public source-byte, mesh-face and acknowledged-file counts support measured stage percentages; unknown work stays indeterminate. Private server diagnostics contain only an exception category and up to four package code-file/line positions. Exception messages, source lines, local variables and customer geometry are excluded. All 60 native tests passed; hosted [44177459422](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44177459422) passed native proof and the legacy-compatible user-API calibration after PR #13. The follow-up canary explicitly verifies negotiated progress once Auto3D 0.82.0 is deployed. The actual reported X_T failed with the older generic code; its cause is pending a normal private-pipeline retry after rollout. No customer CAD was downloaded or checked into source control. Earlier successful STEP calibration is not acceptance of this Parasolid source.
 
 ## Pages client identification — 0.3.2
 
