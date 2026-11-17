@@ -83,12 +83,14 @@ def gateway_endpoint(value):
     if not re.fullmatch(r"https://[a-z0-9][a-z0-9-]{0,190}\.modal\.run", endpoint):
         parsed = urlsplit(value) if isinstance(value, str) else None
         host = parsed.hostname if parsed else None
-        safe_host = (
-            host
-            if host and re.fullmatch(r"[a-z0-9_-]{1,200}\.modal\.run", host)
-            else "unrecognized"
+        safe_host = host if host and re.fullmatch(r"[a-z0-9_.-]{1,253}", host) else "none"
+        raise BridgeError(
+            "Modal returned an unsupported gateway URL (type: "
+            + type(value).__name__
+            + "; host: "
+            + safe_host
+            + ")."
         )
-        raise BridgeError("Modal returned an unsupported gateway URL (host: " + safe_host + ").")
     return endpoint
 
 
