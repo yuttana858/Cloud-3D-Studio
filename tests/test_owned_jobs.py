@@ -245,6 +245,16 @@ class ProvisionProofTests(unittest.TestCase):
         ):
             provision_modal.proxy_probe("https://fixture.modal.run", runtime, settings, True)
         self.assertEqual(opener.open.call_count, 2)
+        opener.open.side_effect = [
+            io.BytesIO(json.dumps({**identity, "conversionReady": False}).encode()),
+            io.BytesIO(json.dumps(identity).encode()),
+        ]
+        with (
+            patch.object(provision_modal.urllib.request, "build_opener", return_value=opener),
+            patch.object(provision_modal.time, "sleep") as delay,
+        ):
+            provision_modal.proxy_probe("https://fixture.modal.run", runtime, settings, True)
+        delay.assert_called_once_with(2)
         opener.open.side_effect = urllib.error.HTTPError(
             "https://fixture.modal.run", 403, "private error", {}, io.BytesIO(b"private body")
         )
