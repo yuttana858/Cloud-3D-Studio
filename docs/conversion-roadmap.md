@@ -1,6 +1,6 @@
 # Shared CAD conversion: goals and milestones
 
-Updated November 16, 2026. This supersedes the Blender-first ordering in the original deployment plan while retaining Blender as a later service. The **0.2.0** follow-up adds a Supabase Vault credential bridge and protected metadata gateway; see [setup](modal-credentials.md). M2 still requires real credentials, permitted egress and account cost verification. This does not complete the M3 CAD job connector.
+Updated November 17, 2026. This supersedes the Blender-first ordering while retaining Blender as a later service. **0.3.0** adds a protected job gateway, private transfer worker, native proof and direct Vault runtime provisioning; see [operation](owned-jobs.md). Live deployment and supplier acceptance require their own evidence.
 
 ## Goals
 
@@ -16,7 +16,7 @@ Updated November 16, 2026. This supersedes the Blender-first ordering in the ori
 | --- | --- | --- |
 | M0 — Architecture and scope | Shared project/workspace decision, format/units policy, staged cost policy and this milestone list committed. | Complete in this source increment. |
 | M1 — Local CPU foundation, v0.1.0 | Pinned project/lockfile, capabilities, strict Parasolid/STEP adapter, bounded process, STEP/GLB/STL outputs and manifests. Synthetic boxes, inches, curved solids, assemblies, failure/limit tests pass; artifacts reopen and dimensions match. | Locally validated; see operations evidence. |
-| M2 — Modal CPU proof | Securely authenticate to the intended workspace; verify plan, remaining credits and net-spend cap; build image and run one bounded private CPU self-test. Record commit, runtime, peak memory, billed usage and validated results. | Blocked on secure Modal connection, cost verification and environment access to Modal hosts. |
+| M2 — Modal CPU proof | Securely authenticate to the intended workspace; inspect plan/credits and net-spend cap; build image and run one bounded private CPU self-test. Record commit, runtime, memory/usage where observable and validated results. | Authentication passed from GitHub; hosted native proof is next. Billing limits remain unchanged; no zero-cost claim. |
 | M3 — Owned job connector | Auto3D API creates account-owned jobs; private source/artifact transfers, scoped worker claims, stages, retries, cancellation, expiry and reconciliation pass two-account tests. CAD bytes are not Modal Function arguments/results. | Next after the worker contract is verified. |
 | M4 — Auto3D workflow | File/unit/quality controls, correct target-window/session import, cross-scene unit normalization, one-step Undo, downloads and strict shared agent commands pass desktop/mobile checks. | Planned. |
 | M5 — Supplier acceptance and pilot | User reference Parasolid and representative assemblies/curves pass known-dimension, count and surface checks through a private staging upload. Allowlisted-account feature flag, quotas, recovery and rollback tested. | Depends on the reference file and preceding gates. |

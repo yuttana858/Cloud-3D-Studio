@@ -26,12 +26,16 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise BridgeError("The Vault endpoint redirected; credentials were not forwarded.")
 
 
-def read_deployment(profile, environ=None):
+def vault_call(profile, purpose, action="read", extra=None, environ=None):
     environ = os.environ if environ is None else environ
     if profile not in ("production", "preview"):
         raise BridgeError("Select production or preview explicitly.")
+    if purpose not in ("deployment", "runtime") or action not in ("read", "save", "delete"):
+        raise BridgeError("Invalid Vault operation.")
     url = environ.get("SUPABASE_URL", "").strip().rstrip("/")
-    key = environ.get("SUPABASE_SECRET_KEY") or environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    key = (
+        environ.get("SUPABASE_SECRET_KEY") or environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    ).strip()
     if not re.fullmatch(r"https://[a-z0-9]+\.supabase\.co", url) or not key:
         raise BridgeError("Configure the trusted runner's Supabase URL and server key.")
     headers = {"apikey": key, "Content-Type": "application/json"}
@@ -47,8 +51,8 @@ def read_deployment(profile, environ=None):
             ) from None
         headers["Authorization"] = "Bearer " + key
     request = urllib.request.Request(
-        url + "/rest/v1/rpc/auto3d_modal_connection_read",
-        data=json.dumps({"p_profile": profile, "p_purpose": "deployment"}).encode(),
+        url + "/rest/v1/rpc/auto3d_modal_connection_" + action,
+        data=json.dumps({"p_profile": profile, "p_purpose": purpose, **(extra or {})}).encode(),
         headers=headers,
         method="POST",
     )
@@ -61,7 +65,12 @@ def read_deployment(profile, environ=None):
     except BridgeError:
         raise
     except Exception:
-        raise BridgeError("Could not read the deployment connection from Supabase Vault.") from None
+        raise BridgeError("Could not access the Modal connection in Supabase Vault.") from None
+    return record
+
+
+def read_deployment(profile, environ=None):
+    record = vault_call(profile, "deployment", environ=environ)
     try:
         if (
             record["schema"] != 1

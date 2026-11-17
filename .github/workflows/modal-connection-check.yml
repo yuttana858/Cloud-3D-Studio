@@ -23,17 +23,18 @@ concurrency:
 jobs:
   verify:
     if: github.repository == 'yuttana858/Cloud-3D-Studio' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check runner's Vault identity
         env:
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           python3 - <<'PY'
           import os
           if not os.environ.get('SUPABASE_SECRET_KEY'):
-              raise SystemExit('Add SUPABASE_SECRET_KEY to this repository Actions secrets before running this check. Keep Modal tokens in Supabase Vault.')
+              print('::error title=Missing Supabase runner key::Add a Supabase Secret API key (sb_secret_...) as the Repository Actions secret SUPABASE_SECRET_KEY in yuttana858/Cloud-3D-Studio. A JWT signing secret or publishable key will not work. Keep Modal tokens in Vault.')
+              raise SystemExit(1)
           print('Runner Vault identity is configured.')
           PY
 
@@ -53,7 +54,7 @@ jobs:
       - name: Verify saved deployment pair and target
         env:
           SUPABASE_URL: https://iesepcoxqochycckbwoh.supabase.co
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BRIDGE_PROFILE: ${{ inputs.profile }}
           MODAL_LOGLEVEL: WARNING
         run: python deploy/vault_modal.py --profile "$BRIDGE_PROFILE"

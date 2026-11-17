@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -40,7 +41,17 @@ def stop_group(process):
         pass
 
 
-def run_process(arguments: list[str], directory: Path, timeout: float) -> dict:
+def run_process(arguments: list[str], directory: Path, timeout: float, cancel_check=None) -> dict:
+    child_environment = {
+        name: value
+        for name, value in os.environ.items()
+        if name in {"PATH", "PYTHONPATH", "LD_LIBRARY_PATH", "LANG", "LC_ALL", "TZ", "VIRTUAL_ENV"}
+    }
+    if "PYTHONPATH" in child_environment:
+        child_environment["PYTHONPATH"] = os.pathsep.join(
+            str(Path(path or ".").resolve())
+            for path in child_environment["PYTHONPATH"].split(os.pathsep)
+        )
     with (directory / "native.log").open("wb") as log:
         process = subprocess.Popen(
             arguments,
@@ -48,15 +59,26 @@ def run_process(arguments: list[str], directory: Path, timeout: float) -> dict:
             stderr=log,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
+            cwd=directory,
             env={
-                **os.environ,
+                **child_environment,
                 "OPENBLAS_NUM_THREADS": "2",
                 "OMP_NUM_THREADS": "2",
                 "MKL_NUM_THREADS": "2",
             },
         )
         try:
-            process.wait(timeout=timeout)
+            deadline = time.monotonic() + timeout
+            while process.poll() is None:
+                if cancel_check and cancel_check():
+                    raise ConversionError("cancelled", "The job was cancelled.")
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(arguments, timeout)
+                try:
+                    process.wait(timeout=min(0.25, remaining))
+                except subprocess.TimeoutExpired:
+                    pass
         except subprocess.TimeoutExpired:
             stop_group(process)
             process.wait()
@@ -65,6 +87,7 @@ def run_process(arguments: list[str], directory: Path, timeout: float) -> dict:
             ) from None
         finally:
             stop_group(process)
+            process.wait(timeout=5)
     result_path = directory / "result.json"
     if not result_path.is_file() or result_path.stat().st_size > 16 * 1024 * 1024:
         raise ConversionError("worker_failed", "Native worker failed without a bounded result.")
@@ -114,6 +137,7 @@ def convert_file(
     limits: Limits | None = None,
     *,
     _smoke=False,
+    cancel_check=None,
 ) -> dict:
     if sys.platform != "linux":
         raise ConversionError("linux_required", "Use Linux, WSL or the Modal worker.")
@@ -145,6 +169,7 @@ def convert_file(
             [sys.executable, "-m", "cloud_3d_studio.worker", str(request_path)],
             directory,
             limits.timeout_seconds,
+            cancel_check=cancel_check,
         )
         if not result["ok"]:
             error = result["error"]
