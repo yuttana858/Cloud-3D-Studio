@@ -13,6 +13,7 @@ import sys
 import tomllib
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from deploy.vault_modal import (
     BridgeError,
@@ -76,9 +77,23 @@ def validate_smoke(result):
         ) from None
 
 
-def proxy_probe(endpoint, runtime, settings, require_ready=False):
+def gateway_endpoint(value):
+    # Modal may return the origin with a trailing slash; store one canonical origin.
+    endpoint = value[:-1] if isinstance(value, str) and value.endswith("/") else value or ""
     if not re.fullmatch(r"https://[a-z0-9][a-z0-9-]{0,190}\.modal\.run", endpoint):
-        raise BridgeError("Modal returned an unsupported gateway URL.")
+        parsed = urlsplit(value) if isinstance(value, str) else None
+        host = parsed.hostname if parsed else None
+        safe_host = (
+            host
+            if host and re.fullmatch(r"[a-z0-9_-]{1,200}\.modal\.run", host)
+            else "unrecognized"
+        )
+        raise BridgeError("Modal returned an unsupported gateway URL (host: " + safe_host + ").")
+    return endpoint
+
+
+def proxy_probe(endpoint, runtime, settings, require_ready=False):
+    endpoint = gateway_endpoint(endpoint)
     request = urllib.request.Request(
         endpoint + "/connection",
         headers={"Modal-Key": runtime["tokenId"], "Modal-Secret": runtime["tokenSecret"]},
@@ -150,10 +165,13 @@ async def prove_and_provision(profile, settings):
         )
         result = await smoke.remote()
         validate_smoke(result)
+        print(
+            "Deployed native proof passed: 40 x 30 x 20 mm; independent STEP/GLB/STL reimports passed."
+        )
         gateway = _Function.from_name(
             settings["app"], "cad_gateway", environment_name=settings["environment"], client=client
         )
-        endpoint = await gateway.get_web_url()
+        endpoint = gateway_endpoint(await gateway.get_web_url())
         existing = vault_call(profile, "runtime")
         workspace = _Workspace.from_context(client=client)
         created = None
