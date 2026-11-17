@@ -42,6 +42,7 @@ class ControllerCheckTests(unittest.TestCase):
             ),
             patch.object(check, "read_deployment", return_value={}),
             patch.object(check, "verify_target", new_callable=AsyncMock),
+            patch.object(check, "diagnose_controller", new_callable=AsyncMock),
             patch.object(check, "verify_controller", new_callable=AsyncMock) as invoke,
             patch.object(check.sys, "stdout", io.StringIO()) as output,
         ):
@@ -64,3 +65,16 @@ class ControllerCheckTests(unittest.TestCase):
             check.probe_filters()
             self.assertEqual(output.getvalue().count("HTTP 200"), 5)
             self.assertNotIn("private-job", output.getvalue())
+
+    def test_startup_labels_exclude_arbitrary_log_text_and_paths(self):
+        labels = check.startup_labels(
+            "ModuleNotFoundError: No module named 'cloud_3d_studio'\n"
+            "FileNotFoundError: /root/deploy/requirements-worker.lock\n"
+            'File "/private/modal_app.py", line 14\n'
+            "RuntimeError: private-token private-cad-description\n"
+            "ModuleNotFoundError: No module named 'private_customer'"
+        )
+        self.assertIn("missing module cloud_3d_studio", labels)
+        self.assertIn("missing deployment file requirements-worker.lock", labels)
+        self.assertIn("modal_app:14", labels)
+        self.assertNotIn("private", str(labels))
