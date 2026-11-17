@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -220,6 +221,42 @@ class JobGatewayTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ProvisionProofTests(unittest.TestCase):
+    def test_gateway_probe_retries_transient_startup_and_withholds_provider_errors(self):
+        settings = {"workspace": "fixture", "environment": "main", "app": "cloud-3d-studio"}
+        runtime = {"tokenId": "wk-runtimefixture", "tokenSecret": "ws-runtimefixture"}
+        identity = {
+            **settings,
+            "service": "cloud-3d-studio",
+            "protocol": 1,
+            "version": provision_modal.VERSION,
+            "jobApiVersion": 1,
+            "conversionReady": True,
+        }
+        opener = unittest.mock.Mock()
+        opener.open.side_effect = [
+            urllib.error.HTTPError(
+                "https://fixture.modal.run", 503, "private error", {}, io.BytesIO(b"private body")
+            ),
+            io.BytesIO(json.dumps(identity).encode()),
+        ]
+        with (
+            patch.object(provision_modal.urllib.request, "build_opener", return_value=opener),
+            patch.object(provision_modal.time, "sleep"),
+        ):
+            provision_modal.proxy_probe("https://fixture.modal.run", runtime, settings, True)
+        self.assertEqual(opener.open.call_count, 2)
+        opener.open.side_effect = urllib.error.HTTPError(
+            "https://fixture.modal.run", 403, "private error", {}, io.BytesIO(b"private body")
+        )
+        with (
+            patch.object(provision_modal.urllib.request, "build_opener", return_value=opener),
+            patch.object(provision_modal.time, "sleep"),
+            self.assertRaises(provision_modal.BridgeError) as failure,
+        ):
+            provision_modal.proxy_probe("https://fixture.modal.run", runtime, settings)
+        self.assertIn("403", str(failure.exception))
+        self.assertNotIn("private", str(failure.exception))
+
     def test_provider_origin_normalizes_one_root_slash_and_rejects_non_origins(self):
         origin = "https://fixture--cad-gateway.modal.run"
         self.assertEqual(provision_modal.gateway_endpoint(origin + "/"), origin)

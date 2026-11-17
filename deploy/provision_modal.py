@@ -10,7 +10,9 @@ import math
 import re
 import subprocess
 import sys
+import time
 import tomllib
+import urllib.error
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -102,28 +104,45 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
         endpoint + "/connection",
         headers={"Modal-Key": runtime["tokenId"], "Modal-Secret": runtime["tokenSecret"]},
     )
-    try:
-        with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
-            data = response.read(16385)
-        result = json.loads(data)
-        if (
-            len(data) > 16384
-            or result["service"] != "cloud-3d-studio"
-            or result["protocol"] != 1
-            or result["version"] != VERSION
-            or result["jobApiVersion"] != 1
-        ):
-            raise ValueError()
-        if (
-            any(result[key] != settings[key] for key in ("workspace", "environment", "app"))
-            or require_ready
-            and result["conversionReady"] is not True
-        ):
-            raise ValueError()
-    except Exception:
-        raise BridgeError(
-            "The authenticated gateway did not return the verified target and protocol."
-        ) from None
+    for attempt in range(3):
+        try:
+            with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+                data = response.read(16385)
+            result = json.loads(data)
+            if (
+                len(data) > 16384
+                or result["service"] != "cloud-3d-studio"
+                or result["protocol"] != 1
+                or result["version"] != VERSION
+                or result["jobApiVersion"] != 1
+                or any(result[key] != settings[key] for key in ("workspace", "environment", "app"))
+                or require_ready
+                and result["conversionReady"] is not True
+            ):
+                raise ValueError()
+            return
+        except Exception as error:
+            status = error.code if isinstance(error, urllib.error.HTTPError) else None
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+            if attempt < 2 and (
+                isinstance(error, (TimeoutError, urllib.error.URLError))
+                or status in (429, 502, 503, 504)
+            ):
+                time.sleep(2)
+                continue
+            detail = (
+                "HTTP " + str(status)
+                if status
+                else "response mismatch"
+                if isinstance(error, (ValueError, KeyError))
+                else type(error).__name__
+            )
+            raise BridgeError(
+                "The authenticated gateway check failed ("
+                + detail
+                + "). Provider bodies and credentials were withheld."
+            ) from None
 
 
 def control_key(profile, runtime):
