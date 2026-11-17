@@ -60,7 +60,7 @@ class CanaryClient:
 
     def account(self):
         email = "cad-canary-" + str(uuid4()) + "@auto3d.invalid"
-        password = secrets.token_urlsafe(40)
+        password = "Aa9!" + secrets.token_urlsafe(40)
         user = self.supabase(
             "admin/users",
             "POST",
@@ -107,6 +107,7 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
     accounts, job_id, primary = [], None, None
     cleanup_failed = False
     try:
+        print("Live calibration: creating temporary test identities.")
         primary = client.account()
         accounts.append(primary)
         outsider = client.account()
@@ -137,6 +138,7 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
                 raise
         else:
             raise CanaryError("Cross-account job isolation failed.")
+        print("Live calibration: private source upload and native conversion.")
         client.api(primary, "/" + job_id + "/source", "PUT", source, True)
         job = client.api(primary, "/" + job_id)["job"]
         client.api(primary, "/" + job_id + "/submit", "POST", {"revision": job["revision"]})
@@ -150,6 +152,7 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
                     "The public calibration conversion did not reach ready within its deadline."
                 )
             sleep(2)
+        print("Live calibration: checking dimensions and all artifact hashes/units.")
         summary = job["summary"]
         if (
             summary.get("stepReimportPassed") is not True
