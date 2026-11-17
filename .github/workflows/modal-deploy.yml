@@ -39,3 +39,10 @@ jobs:
           PYTHONPATH: src
           MODAL_LOGLEVEL: WARNING
         run: python -m deploy.provision_modal --profile production --deploy
+      - name: Verify the live Auto3D pipeline when its connector is ready
+        env:
+          SUPABASE_URL: https://iesepcoxqochycckbwoh.supabase.co
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PYTHONPATH: src
+          MODAL_LOGLEVEL: WARNING
+        run: python -m deploy.canary_modal --run

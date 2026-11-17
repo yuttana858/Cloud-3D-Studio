@@ -124,21 +124,6 @@ if os.environ.get("CLOUD3D_CONTROL_SECRET_NAME"):
         enable_memory_snapshot=False,
     )
     def cad_reconcile():
-        import urllib.request
+        from cloud_3d_studio.remote import reconcile_control
 
-        from cloud_3d_studio.remote import NoRedirect
-
-        request = urllib.request.Request(
-            "https://auto3d-5av.pages.dev/internal/conversion-control/reconcile",
-            method="POST",
-            data=b"{}",
-            headers={
-                "Authorization": "Bearer " + os.environ["AUTO3D_CONVERSION_CONTROL_SECRET"],
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with urllib.request.build_opener(NoRedirect).open(request, timeout=45) as response:
-                return {"accepted": response.status == 200}
-        except Exception:
-            return {"accepted": False}
+        return reconcile_control(os.environ["AUTO3D_CONVERSION_CONTROL_SECRET"])

@@ -23,6 +23,27 @@ ARTIFACTS = {
 }
 
 
+def reconcile_control(key):
+    """Install once; poll readiness before the bounded private reconciliation call."""
+    try:
+        opener = urllib.request.build_opener(NoRedirect)
+        base = AUTO3D_ORIGINS[0] + "/internal/conversion-control/"
+        headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
+        with opener.open(
+            urllib.request.Request(base + "health", headers=headers), timeout=10
+        ) as response:
+            body = response.read(4097)
+        if len(body) > 4096 or json.loads(body).get("ready") is not True:
+            return {"accepted": False}
+        with opener.open(
+            urllib.request.Request(base + "reconcile", method="POST", data=b"{}", headers=headers),
+            timeout=40,
+        ) as response:
+            return {"accepted": response.status == 200}
+    except Exception:
+        return {"accepted": False}
+
+
 @dataclass(frozen=True, repr=False)
 class JobReference:
     job_id: str

@@ -1,4 +1,4 @@
-# Private owned conversion jobs — 0.3.0
+# Private owned conversion jobs — 0.3.1
 
 Auto3D owns authentication, metadata and private R2 files. The Modal gateway accepts only a canonical job UUID, attempt UUID, 43-character bearer capability and the fixed production Auto3D origin. It accepts no source URLs, arbitrary callbacks, CAD bytes or account identifiers. Auto3D stores only the capability digest; it expires with the job or attempt. Modal's workspace proxy authentication protects both dispatch and cancellation.
 
@@ -13,9 +13,15 @@ Cloud limits: 50 MiB source; 64 MiB per geometry artifact; 16 MiB manifest; 208 
 3. Save the deployment `ak-`/`as-` pair and exact workspace/environment together in Auto3D's Vault bridge. Runtime `wk-`/`ws-` tokens are different; the build provisions that pair directly into Vault without exposing it in logs.
 4. Run **Check Modal connection from Vault** on main with profile `production`. This verifies token acceptance and actual target identity, without compute or deployment.
 5. After reviewed source merges to main, **Build verified Modal CAD service** runs automatically. It can also be run manually from **Actions → Build verified Modal CAD service → Run workflow → main**. The workflow installs only the hash-locked SDK on the runner; native dependencies build inside Modal.
-6. The build first deploys with submissions disabled, runs the synthetic native proof, provisions/reuses the protected runtime endpoint, and redeploys verified. A failed proof never enables new submissions. If Auto3D's controller health is not yet ready, the gateway can be ready while scheduled reconciliation remains disabled; rerun this same workflow after the Auto3D rollout.
+6. The build first deploys with submissions disabled, runs the synthetic native proof, provisions/reuses the protected runtime endpoint, and redeploys verified. A failed proof never enables new submissions. The controller is installed once and waits for Auto3D health before reconciling, so its deployment does not depend on a browser staying open.
 7. In Auto3D, **Preferences → Modal connections → Test connection** must report the expected workspace/environment and verified conversion readiness. Convert a public sample first, then test the supplier file privately from the Convert CAD dialog.
 
 The named Modal secret `auto3d-conversion-control-production` contains only a profile/target-bound HMAC-derived controller key. It is attached solely to the tiny scheduled controller; it is absent from the native worker. No Supabase key is stored in a Modal image or sent to the browser. If a Vault save acknowledgment is lost, provisioning re-reads before cleanup and never revokes a pair that may already be committed.
 
 No billing tier, workspace, GPU or spending-limit change is performed. Build/run/idle time still consumes the existing workspace's credits or metered allowance. Confirm actual plan and usage in the Modal dashboard; these CPU bounds are not a promise of a zero-dollar invoice.
+
+## Live user-API canary — 0.3.1
+
+The build runs `python -m deploy.canary_modal --run` after provisioning. If the matching Auto3D controller health is not ready, it records that the canary is pending and creates no test accounts. Once ready, it creates two temporary confirmed accounts through the server-only Auth Admin API (no confirmation emails), signs them in, uploads the bundled public 40 × 30 × 20 mm STEP, checks cross-account denial, polls the real job and verifies every downloaded artifact hash/unit against its manifest. A finally block deletes the job/files and both identities; cleanup failure cannot report success. Tokens/passwords and CAD bytes never enter workflow logs. No existing customer account is used or modified. Run without `--run` is read-only and creates nothing.
+
+A Native proof is not the live user-API canary. Record their outcomes separately, and retain supplier Parasolid acceptance as a separate gate.
