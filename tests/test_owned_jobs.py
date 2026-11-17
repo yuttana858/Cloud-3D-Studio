@@ -223,12 +223,15 @@ class ProvisionProofTests(unittest.TestCase):
     def test_provider_origin_normalizes_one_root_slash_and_rejects_non_origins(self):
         origin = "https://fixture--cad-gateway.modal.run"
         self.assertEqual(provision_modal.gateway_endpoint(origin + "/"), origin)
+        regional = "https://fixture--cad-gateway.us-east.modal.run"
+        self.assertEqual(provision_modal.gateway_endpoint(regional), regional)
         for value in (
             None,
             origin + "/path",
             origin + "?key=private",
             "https://evil.test",
             "https://user:password@fixture.modal.run",
+            "https://fixture--cad-gateway.us-east.evil.modal.run",
         ):
             with self.assertRaises(provision_modal.BridgeError):
                 provision_modal.gateway_endpoint(value)
