@@ -26,3 +26,5 @@ uv run cloud3d convert /path/to/product.x_t --source-unit m --output out/product
 The Parasolid coordinate unit must be explicit; `m` above is only an example. STEP reads its declared units. Inputs and outputs stay local for these commands. The source repository is public: private CAD belongs outside Git or under ignored `private/`, and outputs under ignored `out/`.
 
 The Modal module contains private SDK-authenticated CPU smoke tests and a small proxy-authenticated metadata gateway, with no job-submission web route, GPU or permanent warm pool. Its existence does not mean it has been deployed. The Vault runner reads one complete deployment token pair from Supabase and verifies the actual workspace and environment before any explicit deployment. Remote execution still needs permitted network access and a verified spending policy. See the operations and credential guides.
+
+After saving the Vault record, use the [manual GitHub connection check](docs/modal-connection-check.md) to verify its Modal authentication from a trusted runner. This check does not deploy or run a CAD conversion.
