@@ -42,7 +42,7 @@ class ControllerCheckTests(unittest.TestCase):
             ),
             patch.object(check, "read_deployment", return_value={}),
             patch.object(check, "verify_target", new_callable=AsyncMock),
-            patch.object(check, "invoke_scheduled_function", new_callable=AsyncMock) as invoke,
+            patch.object(check, "verify_controller", new_callable=AsyncMock) as invoke,
             patch.object(check.sys, "stdout", io.StringIO()) as output,
         ):
             self.assertEqual(check.main(["--run"]), 0)

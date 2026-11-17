@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: modal-production-build
+  cancel-in-progress: false
 jobs:
   verify:
     if: github.repository == 'yuttana858/Cloud-3D-Studio' && github.ref == 'refs/heads/main'

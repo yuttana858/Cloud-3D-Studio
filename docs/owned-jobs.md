@@ -1,4 +1,6 @@
-# Private owned conversion jobs — 0.3.3
+# Private owned conversion jobs — 0.3.4
+
+Version 0.3.4 keeps the scheduled function defined when Modal imports the module without the deployment runner's environment. Only the deployment attaches the five-minute schedule and named controller secret; without an attached key the function returns `accepted: false`. A ready production deployment must also invoke the actual remote controller and receive an accepted response within 90 seconds. The operator check uses the same bounded verification and serializes with production builds. This checks remote startup and secret attachment rather than inferring them from API health. Safe diagnostics follow a bounded explicit exception-cause chain to retain the underlying public reader code location, while preserving the existing two-field private contract.
 
 The **Verify private conversion controller** workflow runs `python -m tools.check_conversion_controller --run` on the trusted runner. It reuses Vault credentials to check controller health, execute one bounded API reconciliation pass, and invoke the deployed scheduled function. It never rebuilds or disables the CAD gateway. Failures probe fixed database filter labels and return only HTTP/error codes; job identifiers and CAD contents are withheld. Running the CLI without `--run` performs no credential reads or mutations.
 

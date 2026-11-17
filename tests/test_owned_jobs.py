@@ -30,7 +30,9 @@ def reference():
 
 
 class FakeTransport:
-    def __init__(self, ref, *, accepted=True, state="running", fail_upload=False, progress_protocol=1):
+    def __init__(
+        self, ref, *, accepted=True, state="running", fail_upload=False, progress_protocol=1
+    ):
         self.reference = ref
         self.calls = []
         self.accepted = accepted

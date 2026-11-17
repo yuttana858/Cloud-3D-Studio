@@ -2,7 +2,7 @@
 
 Shared compute services for Auto3D. The first implementation is a CPU-only CAD conversion foundation: supported Parasolid and STEP input to validated STEP, GLB and STL plus a unit/provenance manifest. Blender rendering remains a later, separate worker.
 
-Version: **0.3.3**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
+Version: **0.3.4**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
 
 ## Local development
 

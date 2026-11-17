@@ -89,3 +89,23 @@ class ProgressTests(unittest.TestCase):
             self.assertEqual(result["error"]["diagnostic"]["exception"], "TypeError")
             self.assertNotIn("private-geometry", json.dumps(result))
             self.assertNotIn(directory, json.dumps(result))
+
+    def test_chained_geometry_failures_retain_only_the_root_category_and_public_code(self):
+        try:
+            exec(
+                compile(
+                    "raise TypeError('private geometry')",
+                    "/opt/parasolid_kit/interop/occt/builders.py",
+                    "exec",
+                )
+            )
+        except TypeError as cause:
+            try:
+                raise RuntimeError("private source filename") from cause
+            except RuntimeError as error:
+                diagnostic = failure_context(error)
+                self.assertEqual(diagnostic["exception"], "TypeError")
+                self.assertEqual(diagnostic["frames"], ["builders:1"])
+                self.assertNotIn("private", json.dumps(diagnostic))
+                cause.__cause__ = error  # Malformed chains cannot loop forever.
+                self.assertEqual(failure_context(error), diagnostic)

@@ -10,7 +10,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 from cloud_3d_studio import HTTP_USER_AGENT
-from deploy.provision_modal import control_key
+from deploy.provision_modal import control_key, verify_controller
 from deploy.vault_modal import (
     BridgeError,
     NoRedirect,
@@ -84,24 +84,6 @@ def probe_filters():
             print("Database filter " + label + ": HTTP " + str(status) + "; code " + code + ".")
 
 
-async def invoke_scheduled_function(settings):
-    from modal._functions import _Function
-    from modal.client import _Client
-
-    async with await _Client.from_credentials(
-        settings["tokenId"], settings["tokenSecret"]
-    ) as client:
-        controller = _Function.from_name(
-            settings["app"],
-            "cad_reconcile",
-            environment_name=settings["environment"],
-            client=client,
-        )
-        result = await controller.remote()
-        if not isinstance(result, dict) or result.get("accepted") is not True:
-            raise BridgeError("The deployed scheduled controller did not accept its pass.")
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -125,7 +107,7 @@ def main(argv=None):
         print("The controller API accepted one bounded reconciliation pass.")
         settings = read_deployment("production")
         asyncio.run(verify_target(settings))
-        asyncio.run(invoke_scheduled_function(settings))
+        asyncio.run(verify_controller(settings))
         print("The deployed scheduled controller also accepted its pass.")
         return 0
     except BridgeError as error:

@@ -54,11 +54,22 @@ def failure_context(error):
         "InteropError",
     }
     frames = []
-    for frame in traceback.extract_tb(error.__traceback__):
-        if "/cloud_3d_studio/" in frame.filename or "/parasolid_kit/" in frame.filename:
-            filename = Path(frame.filename).stem
-            if filename.replace("_", "").isalnum() and len(filename) <= 64:
-                frames.append(filename + ":" + str(frame.lineno))
+    seen = set()
+    # A topology wrapper otherwise hides the actual failing public reader code.
+    # Bound cycles/depth and keep the existing two-field, geometry-free contract.
+    for _ in range(8):
+        if id(error) in seen:
+            break
+        seen.add(id(error))
+        for frame in traceback.extract_tb(error.__traceback__):
+            if "/cloud_3d_studio/" in frame.filename or "/parasolid_kit/" in frame.filename:
+                filename = Path(frame.filename).stem
+                if filename.replace("_", "").isalnum() and len(filename) <= 64:
+                    frames.append(filename + ":" + str(frame.lineno))
+        cause = error.__cause__
+        if cause is None or id(cause) in seen:
+            break
+        error = cause
     return {
         "exception": type(error).__name__ if type(error).__name__ in known else "NativeError",
         "frames": frames[-4:],

@@ -109,21 +109,30 @@ def cad_convert_job(payload):
     return run_owned_job(JobReference.parse(payload))
 
 
-if os.environ.get("CLOUD3D_CONTROL_SECRET_NAME"):
+# The deployed module is imported again inside a remote container, where the
+# deploy runner's environment is absent. Always define the function symbol;
+# only resource attachment depends on deployment configuration.
+controller_options = {}
+if secret_name := os.environ.get("CLOUD3D_CONTROL_SECRET_NAME"):
+    controller_options = {
+        "schedule": modal.Period(minutes=5),
+        "secrets": [modal.Secret.from_name(secret_name)],
+    }
 
-    @app.function(
-        image=gateway_image,
-        cpu=(0.125, 0.125),
-        memory=(128, 256),
-        timeout=60,
-        min_containers=0,
-        max_containers=1,
-        scaledown_window=2,
-        schedule=modal.Period(minutes=5),
-        secrets=[modal.Secret.from_name(os.environ["CLOUD3D_CONTROL_SECRET_NAME"])],
-        enable_memory_snapshot=False,
-    )
-    def cad_reconcile():
-        from cloud_3d_studio.remote import reconcile_control
 
-        return reconcile_control(os.environ["AUTO3D_CONVERSION_CONTROL_SECRET"])
+@app.function(
+    image=gateway_image,
+    cpu=(0.125, 0.125),
+    memory=(128, 256),
+    timeout=60,
+    min_containers=0,
+    max_containers=1,
+    scaledown_window=2,
+    enable_memory_snapshot=False,
+    **controller_options,
+)
+def cad_reconcile():
+    from cloud_3d_studio.remote import reconcile_control
+
+    key = os.environ.get("AUTO3D_CONVERSION_CONTROL_SECRET")
+    return reconcile_control(key) if key else {"accepted": False}
