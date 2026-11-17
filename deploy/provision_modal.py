@@ -108,19 +108,41 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
         try:
             with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
                 data = response.read(16385)
-            result = json.loads(data)
-            if (
-                len(data) > 16384
-                or result["service"] != "cloud-3d-studio"
-                or result["protocol"] != 1
-                or result["version"] != VERSION
-                or result["jobApiVersion"] != 1
-                or any(result[key] != settings[key] for key in ("workspace", "environment", "app"))
-                or require_ready
-                and result["conversionReady"] is not True
+            if len(data) > 16384:
+                raise BridgeError("Gateway identity exceeded the response limit.")
+            try:
+                result = json.loads(data)
+            except ValueError:
+                raise BridgeError(
+                    "Gateway did not return JSON identity (bytes: " + str(len(data)) + ")."
+                ) from None
+            expected = {
+                "service": "cloud-3d-studio",
+                "protocol": 1,
+                "version": VERSION,
+                "jobApiVersion": 1,
+                **{key: settings[key] for key in ("workspace", "environment", "app")},
+            }
+            mismatches = [
+                key
+                for key, value in expected.items()
+                if not isinstance(result, dict)
+                or type(result.get(key)) is not type(value)
+                or result.get(key) != value
+            ]
+            if require_ready and (
+                not isinstance(result, dict) or result.get("conversionReady") is not True
             ):
-                raise ValueError()
+                mismatches.append("conversionReady")
+            if mismatches:
+                raise BridgeError(
+                    "Gateway identity mismatch in: "
+                    + ", ".join(mismatches)
+                    + ". Values and provider bodies were withheld."
+                )
             return
+        except BridgeError:
+            raise
         except Exception as error:
             status = error.code if isinstance(error, urllib.error.HTTPError) else None
             if isinstance(error, urllib.error.HTTPError):
