@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
+from . import HTTP_USER_AGENT
 from .contracts import ConversionError, Limits, validate_options
 from .jobs import convert_file, digest
 
@@ -28,7 +29,11 @@ def reconcile_control(key):
     try:
         opener = urllib.request.build_opener(NoRedirect)
         base = AUTO3D_ORIGINS[0] + "/internal/conversion-control/"
-        headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
+        headers = {
+            "Authorization": "Bearer " + key,
+            "Content-Type": "application/json",
+            "User-Agent": HTTP_USER_AGENT,
+        }
         with opener.open(
             urllib.request.Request(base + "health", headers=headers), timeout=10
         ) as response:
@@ -92,7 +97,11 @@ class JobTransport:
             self.base + operation,
             data=data,
             method=method,
-            headers={"Authorization": "Bearer " + self.reference.token, **(headers or {})},
+            headers={
+                **(headers or {}),
+                "Authorization": "Bearer " + self.reference.token,
+                "User-Agent": HTTP_USER_AGENT,
+            },
         )
         try:
             return self.opener.open(request, timeout=45)

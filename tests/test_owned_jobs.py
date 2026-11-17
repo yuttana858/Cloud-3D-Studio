@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+from cloud_3d_studio import HTTP_USER_AGENT
 from cloud_3d_studio.contracts import ConversionError
 from cloud_3d_studio.gateway import connection_application
 from cloud_3d_studio.jobs import run_process
@@ -62,6 +63,12 @@ class FakeTransport:
 
 
 class OwnedWorkerTests(unittest.TestCase):
+    def test_worker_http_identifies_the_application(self):
+        transport = JobTransport(JobReference.parse(reference()))
+        with patch.object(transport.opener, "open", return_value=io.BytesIO(b"{}")) as request:
+            transport.open("claim", "POST", b"{}")
+        self.assertEqual(request.call_args.args[0].get_header("User-agent"), HTTP_USER_AGENT)
+
     def test_reference_has_fixed_origin_and_never_reprs_capability(self):
         body = reference()
         value = JobReference.parse(body)

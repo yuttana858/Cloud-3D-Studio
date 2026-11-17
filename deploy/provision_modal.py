@@ -17,6 +17,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from cloud_3d_studio import HTTP_USER_AGENT
 from deploy.vault_modal import (
     BridgeError,
     NoRedirect,
@@ -198,7 +199,7 @@ def control_key(profile, runtime):
 def controller_ready(key):
     request = urllib.request.Request(
         "https://auto3d-5av.pages.dev/internal/conversion-control/health",
-        headers={"Authorization": "Bearer " + key},
+        headers={"Authorization": "Bearer " + key, "User-Agent": HTTP_USER_AGENT},
     )
     try:
         with urllib.request.build_opener(NoRedirect).open(request, timeout=15) as response:

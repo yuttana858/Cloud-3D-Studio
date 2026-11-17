@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cloud-3d-studio"
-version = "0.3.1"
+version = "0.3.2"
 description = "Shared CPU CAD conversion foundation for Auto3D and Cloud 3D Studio"
 requires-python = ">=3.12,<3.13"
 license = "MIT"

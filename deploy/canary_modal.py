@@ -12,6 +12,7 @@ import urllib.request
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from cloud_3d_studio import HTTP_USER_AGENT
 from deploy.provision_modal import control_key, controller_ready
 from deploy.vault_modal import BridgeError, NoRedirect, supabase_connection, vault_call
 
@@ -36,7 +37,12 @@ class CanaryClient:
             if body is not None
             else None
         )
-        request = urllib.request.Request(url, method=method, headers=headers or {}, data=data)
+        request = urllib.request.Request(
+            url,
+            method=method,
+            headers={**(headers or {}), "User-Agent": HTTP_USER_AGENT},
+            data=data,
+        )
         try:
             with self.opener.open(request, timeout=45) as response:
                 data = response.read(limit + 1)
