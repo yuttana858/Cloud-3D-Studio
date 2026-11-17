@@ -1,6 +1,6 @@
 # Shared CAD conversion: goals and milestones
 
-Updated November 17, 2026. This supersedes the Blender-first ordering while retaining Blender as a later service. **0.3.0** adds a protected job gateway, private transfer worker, native proof and direct Vault runtime provisioning; see [operation](owned-jobs.md). Live deployment and supplier acceptance require their own evidence.
+Updated November 17, 2026. This supersedes the Blender-first ordering while retaining Blender as a later service. **0.3.2** is live with Auto3D **0.79.0**: protected job gateway, private transfers, native proof, direct Vault provisioning and guarded reconciliation. Hosted run [44150179064](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44150179064) passed the actual user-API calibration and cleanup; see [operations evidence](operations.md). Supplier Parasolid acceptance remains separate.
 
 ## Goals
 
@@ -12,13 +12,13 @@ Updated November 17, 2026. This supersedes the Blender-first ordering while reta
 
 ## Milestones and exit gates
 
-| Milestone | Deliverable and measurable exit gate | Initial status |
+| Milestone | Deliverable and measurable exit gate | Current status |
 | --- | --- | --- |
 | M0 — Architecture and scope | Shared project/workspace decision, format/units policy, staged cost policy and this milestone list committed. | Complete in this source increment. |
 | M1 — Local CPU foundation, v0.1.0 | Pinned project/lockfile, capabilities, strict Parasolid/STEP adapter, bounded process, STEP/GLB/STL outputs and manifests. Synthetic boxes, inches, curved solids, assemblies, failure/limit tests pass; artifacts reopen and dimensions match. | Locally validated; see operations evidence. |
-| M2 — Modal CPU proof | Securely authenticate to the intended workspace; inspect plan/credits and net-spend cap; build image and run one bounded private CPU self-test. Record commit, runtime, memory/usage where observable and validated results. | Authentication passed from GitHub; hosted native proof is next. Billing limits remain unchanged; no zero-cost claim. |
-| M3 — Owned job connector | Auto3D API creates account-owned jobs; private source/artifact transfers, scoped worker claims, stages, retries, cancellation, expiry and reconciliation pass two-account tests. CAD bytes are not Modal Function arguments/results. | Next after the worker contract is verified. |
-| M4 — Auto3D workflow | File/unit/quality controls, correct target-window/session import, cross-scene unit normalization, one-step Undo, downloads and strict shared agent commands pass desktop/mobile checks. | Planned. |
+| M2 — Modal CPU proof | Securely authenticate to the intended workspace; inspect plan/credits and net-spend cap; build image and run one bounded private CPU self-test. Record commit, runtime, memory/usage where observable and validated results. | Authentication, hosted native proof and gateway checks passed. Measured billing/credit review remains operational follow-up; billing limits unchanged and no zero-cost claim. |
+| M3 — Owned job connector | Auto3D API creates account-owned jobs; private source/artifact transfers, scoped worker claims, stages, retries, cancellation, expiry and reconciliation pass two-account tests. CAD bytes are not Modal Function arguments/results. | Implemented and live. Real two-account calibration and artifact validation passed; owned-job SQL/workerd fixtures cover quotas, claims, retries, cancellation and cleanup. |
+| M4 — Auto3D workflow | File/unit/quality controls, correct target-window/session import, cross-scene unit normalization, one-step Undo, downloads and strict shared agent commands pass desktop/mobile checks. | Implemented and deployed in Auto3D 0.79.0 / PR #142. Desktop/mobile workflows, real GLB import and unit/history guards pass; app/module versions and exact validation are recorded in Auto3D release notes. |
 | M5 — Supplier acceptance and pilot | User reference Parasolid and representative assemblies/curves pass known-dimension, count and surface checks through a private staging upload. Allowlisted-account feature flag, quotas, recovery and rollback tested. | Depends on the reference file and preceding gates. |
 | M6 — Additional adapters | Introduce one format at a time using the format roadmap and a real-file acceptance corpus. No unsupported capability advertised. | Planned. |
 
