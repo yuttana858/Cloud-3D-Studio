@@ -73,8 +73,10 @@ class ControllerCheckTests(unittest.TestCase):
             'File "/private/modal_app.py", line 14\n'
             "RuntimeError: private-token private-cad-description\n"
             "ModuleNotFoundError: No module named 'private_customer'"
+            "\nmodal.exception.ExecutionError: Function has 2 dependencies but container got 3 object ids."
         )
         self.assertIn("missing module cloud_3d_studio", labels)
         self.assertIn("missing deployment file requirements-worker.lock", labels)
         self.assertIn("modal_app:14", labels)
+        self.assertIn("dependency mismatch 2/3", labels)
         self.assertNotIn("private", str(labels))

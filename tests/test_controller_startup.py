@@ -11,6 +11,42 @@ from deploy import provision_modal
 
 
 class ControllerStartupTests(unittest.TestCase):
+    def test_container_image_environment_reconstructs_the_same_secret_dependencies(self):
+        environment = dict(os.environ)
+        environment["CLOUD3D_CONTROL_SECRET_NAME"] = "fixture-controller"
+        environment.pop("AUTO3D_CONVERSION_CONTROL_SECRET", None)
+        code = """
+import importlib
+import os
+import modal
+from modal._utils.async_utils import synchronizer
+original_env = modal.Image.env
+captured = []
+def capture(image, values):
+    captured.append(dict(values))
+    return original_env(image, values)
+modal.Image.env = capture
+import deploy.modal_app as module
+def dependencies():
+    function = synchronizer._translate_in(module.cad_reconcile)
+    return tuple(type(value).__name__ for value in function._deps_())
+deployed = dependencies()
+assert '_Secret' in deployed
+image_environment = captured[-1]
+assert 'AUTO3D_CONVERSION_CONTROL_SECRET' not in image_environment
+os.environ.pop('CLOUD3D_CONTROL_SECRET_NAME')
+os.environ.update(image_environment)
+importlib.reload(module)
+assert dependencies() == deployed
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            env=environment,
+            capture_output=True,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, "Controller dependency reconstruction failed.")
+
     def test_remote_import_defines_the_function_without_the_deploy_environment(self):
         environment = dict(os.environ)
         environment.pop("CLOUD3D_CONTROL_SECRET_NAME", None)
