@@ -1,4 +1,6 @@
-# Private owned conversion jobs — 0.3.4
+# Private owned conversion jobs — 0.3.5
+
+Version 0.3.5 also preserves the nonsecret controller secret **name** in the gateway image environment. Modal reconstructs a function's dependency graph during remote import; that graph must include the same named Secret as deployment, even though its value is attached only to the controller. The key is never baked into an image. A subprocess regression reconstructs the deployed function from only the captured image environment and verifies identical dependency types/counts, with the actual key absent.
 
 Version 0.3.4 keeps the scheduled function defined when Modal imports the module without the deployment runner's environment. Only the deployment attaches the five-minute schedule and named controller secret; without an attached key the function returns `accepted: false`. A ready production deployment must also invoke the actual remote controller and receive an accepted response within 90 seconds. The operator check uses the same bounded verification and serializes with production builds. This checks remote startup and secret attachment rather than inferring them from API health. Safe diagnostics follow a bounded explicit exception-cause chain to retain the underlying public reader code location, while preserving the existing two-field private contract.
 

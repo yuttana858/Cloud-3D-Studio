@@ -61,6 +61,9 @@ gateway_image = (
             "CLOUD3D_WORKSPACE": os.environ.get("CLOUD3D_WORKSPACE", ""),
             "CLOUD3D_ENVIRONMENT": os.environ.get("CLOUD3D_ENVIRONMENT", ""),
             "CLOUD3D_NATIVE_VERIFIED": os.environ.get("CLOUD3D_NATIVE_VERIFIED", "0"),
+            # The name is public configuration, not the key. Remote import must
+            # reconstruct the same Secret dependency as the deploy runner.
+            "CLOUD3D_CONTROL_SECRET_NAME": os.environ.get("CLOUD3D_CONTROL_SECRET_NAME", ""),
         }
     )
     .add_local_python_source("cloud_3d_studio")

@@ -116,9 +116,16 @@ def startup_labels(message):
             "OSError",
             "TypeError",
             "ValueError",
+            "ExecutionError",
         ):
             if re.search(r"\b" + category + r":", line):
                 labels.add(category)
+        match = re.search(
+            r"Function has ([0-9]{1,4}) dependencies but container got ([0-9]{1,4}) object ids",
+            line,
+        )
+        if match:
+            labels.add("dependency mismatch " + match[1] + "/" + match[2])
     return sorted(labels)[:20]
 
 
