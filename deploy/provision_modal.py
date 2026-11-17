@@ -80,7 +80,9 @@ def validate_smoke(result):
 def gateway_endpoint(value):
     # Modal may return the origin with a trailing slash; store one canonical origin.
     endpoint = value[:-1] if isinstance(value, str) and value.endswith("/") else value or ""
-    if not re.fullmatch(r"https://[a-z0-9][a-z0-9-]{0,190}\.modal\.run", endpoint):
+    if not re.fullmatch(
+        r"https://[a-z0-9][a-z0-9-]{0,190}(?:\.[a-z0-9][a-z0-9-]{0,62})?\.modal\.run", endpoint
+    ):
         parsed = urlsplit(value) if isinstance(value, str) else None
         host = parsed.hostname if parsed else None
         safe_host = host if host and re.fullmatch(r"[a-z0-9_.-]{1,253}", host) else "none"
