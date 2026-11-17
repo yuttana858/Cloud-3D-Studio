@@ -2,12 +2,14 @@ import hashlib
 import io
 import json
 import unittest
+import urllib.error
+from contextlib import redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from cloud_3d_studio.remote import reconcile_control
-from deploy import canary_modal
+from deploy import canary_modal, provision_modal
 
 
 class FakeCanary:
@@ -85,6 +87,30 @@ class FakeCanary:
 
 
 class CanaryTests(unittest.TestCase):
+    def test_readiness_diagnostics_do_not_print_response_or_credentials(self):
+        for outcome, expected in (
+            (io.BytesIO(b'{"ready":true}'), "ready."),
+            (io.BytesIO(b"private-provider-body"), "invalid response."),
+            (
+                urllib.error.HTTPError("https://fixture", 503, "private-details", {}, None),
+                "HTTP 503.",
+            ),
+        ):
+            output = io.StringIO()
+            opener = Mock()
+            if isinstance(outcome, Exception):
+                opener.open.side_effect = outcome
+            else:
+                opener.open.return_value = outcome
+            with (
+                patch.object(provision_modal.urllib.request, "build_opener", return_value=opener),
+                redirect_stdout(output),
+            ):
+                ready = provision_modal.controller_ready("private-control-key")
+            self.assertEqual(ready, expected == "ready.")
+            self.assertIn(expected, output.getvalue())
+            self.assertNotIn("private", output.getvalue())
+
     def test_explicit_success_validates_all_files_and_removes_both_accounts(self):
         fake = FakeCanary()
         result = canary_modal.run_canary(fake)
