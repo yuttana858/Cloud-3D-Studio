@@ -26,12 +26,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise BridgeError("The Vault endpoint redirected; credentials were not forwarded.")
 
 
-def vault_call(profile, purpose, action="read", extra=None, environ=None):
+def supabase_connection(environ=None):
     environ = os.environ if environ is None else environ
-    if profile not in ("production", "preview"):
-        raise BridgeError("Select production or preview explicitly.")
-    if purpose not in ("deployment", "runtime") or action not in ("read", "save", "delete"):
-        raise BridgeError("Invalid Vault operation.")
     url = environ.get("SUPABASE_URL", "").strip().rstrip("/")
     key = (
         environ.get("SUPABASE_SECRET_KEY") or environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -50,6 +46,15 @@ def vault_call(profile, purpose, action="read", extra=None, environ=None):
                 "Use a Supabase server key, never a publishable or user token."
             ) from None
         headers["Authorization"] = "Bearer " + key
+    return url, headers
+
+
+def vault_call(profile, purpose, action="read", extra=None, environ=None):
+    if profile not in ("production", "preview"):
+        raise BridgeError("Select production or preview explicitly.")
+    if purpose not in ("deployment", "runtime") or action not in ("read", "save", "delete"):
+        raise BridgeError("Invalid Vault operation.")
+    url, headers = supabase_connection(environ)
     request = urllib.request.Request(
         url + "/rest/v1/rpc/auto3d_modal_connection_" + action,
         data=json.dumps({"p_profile": profile, "p_purpose": purpose, **(extra or {})}).encode(),

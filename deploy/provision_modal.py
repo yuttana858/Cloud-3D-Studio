@@ -104,9 +104,12 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
         endpoint + "/connection",
         headers={"Modal-Key": runtime["tokenId"], "Modal-Secret": runtime["tokenSecret"]},
     )
-    for attempt in range(8):
+    deadline = time.monotonic() + 90
+    for attempt in range(30):
         try:
-            with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
+            with urllib.request.build_opener(NoRedirect).open(
+                request, timeout=max(1, min(30, deadline - time.monotonic()))
+            ) as response:
                 data = response.read(16385)
             if len(data) > 16384:
                 raise BridgeError("Gateway identity exceeded the response limit.")
@@ -135,7 +138,11 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
             ):
                 mismatches.append("conversionReady")
             if mismatches:
-                if mismatches == ["conversionReady"] and attempt < 7:
+                if (
+                    set(mismatches).issubset({"version", "conversionReady"})
+                    and attempt < 29
+                    and time.monotonic() < deadline
+                ):
                     # Deployment routing may briefly serve the previous disabled revision.
                     time.sleep(2)
                     continue
@@ -151,9 +158,13 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
             status = error.code if isinstance(error, urllib.error.HTTPError) else None
             if isinstance(error, urllib.error.HTTPError):
                 error.close()
-            if attempt < 7 and (
-                isinstance(error, (TimeoutError, urllib.error.URLError))
-                or status in (429, 502, 503, 504)
+            if (
+                attempt < 29
+                and time.monotonic() < deadline
+                and (
+                    isinstance(error, (TimeoutError, urllib.error.URLError))
+                    or status in (429, 502, 503, 504)
+                )
             ):
                 time.sleep(2)
                 continue
@@ -309,7 +320,7 @@ def main(argv=None):
         deploy(settings, verified=False)
         runtime, secret_name = asyncio.run(prove_and_provision(args.profile, settings))
         enable_control = controller_ready(control_key(args.profile, runtime))
-        deploy(settings, verified=True, controller=secret_name if enable_control else None)
+        deploy(settings, verified=True, controller=secret_name)
         proxy_probe(runtime["endpoint"], runtime, settings, require_ready=True)
         print(
             "Native STEP/GLB/STL proof passed; protected job gateway is ready; runtime credentials are saved in Vault."
@@ -317,7 +328,7 @@ def main(argv=None):
         print(
             "Background reconciliation is enabled."
             if enable_control
-            else "Background reconciliation will enable after the Auto3D connector is live."
+            else "Background reconciliation is installed and will wait for Auto3D readiness."
         )
         return 0
     except BridgeError as error:
