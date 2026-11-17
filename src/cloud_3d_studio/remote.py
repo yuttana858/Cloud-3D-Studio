@@ -5,6 +5,7 @@ import json
 import re
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from uuid import UUID
 from . import HTTP_USER_AGENT
 from .contracts import ConversionError, Limits, validate_options
 from .jobs import convert_file, digest
+from .progress import progress_value
 
 AUTO3D_ORIGINS = ("https://auto3d-5av.pages.dev",)
 ARTIFACTS = {
@@ -133,7 +135,7 @@ class JobTransport:
         except Exception:
             raise ConversionError("protocol_error", "Invalid job-control response.") from None
 
-    def download(self, path, expected_bytes, expected_hash, maximum):
+    def download(self, path, expected_bytes, expected_hash, maximum, *, on_progress=None):
         total, checksum = 0, hashlib.sha256()
         with self.open("source") as incoming, path.open("xb") as outgoing:
             while chunk := incoming.read(1024 * 1024):
@@ -142,6 +144,8 @@ class JobTransport:
                     raise ConversionError("input_limit", "Source exceeds the job byte limit.")
                 checksum.update(chunk)
                 outgoing.write(chunk)
+                if on_progress:
+                    on_progress(total, expected_bytes)
         if total != expected_bytes or checksum.hexdigest() != expected_hash:
             raise ConversionError("source_hash_mismatch", "Source verification failed.")
 
@@ -181,19 +185,43 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
     transport = transport_factory(reference)
     stopped, cancelled = threading.Event(), threading.Event()
     monitor = None
+    progress_protocol = False
+    current = [{"stage": "downloading", "progress": progress_value("download_source")}]
+
+    def update(value):
+        value = progress_value(**value)
+        phase = value["phase"]
+        stage = (
+            "downloading"
+            if phase == "download_source"
+            else "uploading"
+            if phase in ("upload_artifacts", "finalizing")
+            else "converting"
+        )
+        current[0] = {"stage": stage, "progress": value}
+
+    def notify():
+        snapshot = current[0]
+        payload = snapshot if progress_protocol else {"stage": snapshot["stage"]}
+        if transport.json("progress", payload).get("state") != "running":
+            cancelled.set()
+
     try:
         claim = transport.json("claim", {})
         if claim.get("accepted") is not True:
             return {"accepted": False}
+        progress_protocol = claim.get("progressProtocol") == 1
         source = validate_claim(claim)
-        stage = ["downloading"]
 
         def progress():
-            while not stopped.wait(10):
+            sent, at = None, 0
+            while not stopped.wait(1):
                 try:
-                    response = transport.json("progress", {"stage": stage[0]})
-                    if response.get("state") != "running":
-                        cancelled.set()
+                    snapshot = current[0]
+                    if snapshot != sent or time.monotonic() - at >= 10:
+                        notify()
+                        sent, at = snapshot, time.monotonic()
+                    if cancelled.is_set():
                         return
                 except Exception:
                     # Fail closed if the account's lease can no longer be checked.
@@ -205,11 +233,20 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
         with tempfile.TemporaryDirectory(prefix="auto3d-owned-") as temporary:
             root = Path(temporary)
             input_path = root / ("source." + source["extension"])
-            transport.download(input_path, source["bytes"], source["sha256"], Limits().input_bytes)
+            transport.download(
+                input_path,
+                source["bytes"],
+                source["sha256"],
+                Limits().input_bytes,
+                on_progress=lambda done, total: update(
+                    progress_value("download_source", done, total, "bytes")
+                ),
+            )
             if cancelled.is_set():
                 raise ConversionError("cancelled", "The job is no longer active.")
-            stage[0] = "converting"
-            if transport.json("progress", {"stage": stage[0]}).get("state") != "running":
+            update(progress_value("read_source"))
+            notify()
+            if cancelled.is_set():
                 raise ConversionError("cancelled", "The job is no longer active.")
             output = root / "result"
             converter(
@@ -219,17 +256,22 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
                 claim["quality"],
                 limits=Limits(output_bytes=64 * 1024 * 1024, total_output_bytes=208 * 1024 * 1024),
                 cancel_check=cancelled.is_set,
+                on_progress=update,
             )
-            stage[0] = "uploading"
-            transport.json("progress", {"stage": stage[0]})
-            for kind, filename in ARTIFACTS.items():
+            update(progress_value("upload_artifacts", 0, len(ARTIFACTS), "files"))
+            notify()
+            for count, (kind, filename) in enumerate(ARTIFACTS.items(), 1):
                 if cancelled.is_set():
                     raise ConversionError("cancelled", "The job is no longer active.")
                 transport.upload(kind, output / filename)
+                update(progress_value("upload_artifacts", count, len(ARTIFACTS), "files"))
+                notify()
             stopped.set()
             monitor.join(timeout=46)
             if cancelled.is_set():
                 raise ConversionError("cancelled", "The job is no longer active.")
+            update(progress_value("finalizing"))
+            notify()
             transport.json("complete", {})
         return {"accepted": True, "completed": True}
     except Exception as error:
@@ -238,7 +280,18 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
         if not isinstance(code, str) or not re.fullmatch(r"[a-z_]{1,64}", code):
             code = "conversion_failed"
         try:
-            transport.json("failure", {"code": code})
+            notify()
+        except Exception:
+            pass
+        try:
+            context = getattr(error, "context", None)
+            transport.json(
+                "failure",
+                {
+                    "code": code,
+                    **({"diagnostic": context} if context and progress_protocol else {}),
+                },
+            )
         except Exception:
             pass
         return {"accepted": True, "completed": False, "code": code}

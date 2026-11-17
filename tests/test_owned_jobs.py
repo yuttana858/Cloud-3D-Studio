@@ -30,18 +30,20 @@ def reference():
 
 
 class FakeTransport:
-    def __init__(self, ref, *, accepted=True, state="running", fail_upload=False):
+    def __init__(self, ref, *, accepted=True, state="running", fail_upload=False, progress_protocol=1):
         self.reference = ref
         self.calls = []
         self.accepted = accepted
         self.state = state
         self.fail_upload = fail_upload
+        self.progress_protocol = progress_protocol
 
     def json(self, operation, payload):
         self.calls.append((operation, payload))
         if operation == "claim":
             return {
                 "accepted": self.accepted,
+                "progressProtocol": self.progress_protocol,
                 "source": {
                     "extension": "step",
                     "bytes": 7,
@@ -52,7 +54,7 @@ class FakeTransport:
             }
         return {"state": self.state}
 
-    def download(self, path, *args):
+    def download(self, path, *args, **kwargs):
         path.write_bytes(b"fixture")
 
     def upload(self, kind, path):

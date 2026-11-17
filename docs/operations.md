@@ -1,5 +1,9 @@
 # Operations and validation evidence
 
+## Native progress and failure reporting — 0.3.3 candidate
+
+Adds bounded phase/count telemetry and fixed failure categories. Public source-byte, mesh-face and acknowledged-file counts support measured stage percentages; unknown work stays indeterminate. Private server diagnostics contain only an exception category and up to four package code-file/line positions. Exception messages, source lines, local variables and customer geometry are excluded. The actual reported X_T failed with the older generic code; its cause is pending a normal private-pipeline retry after rollout. No customer CAD was downloaded or checked into source control. Earlier successful STEP calibration is not acceptance of this Parasolid source.
+
 ## Pages client identification — 0.3.2
 
 Auto3D 0.79.0 deployed in [run 44147440033](https://github.com/yuttana858/Auto3D/actions/runs/44147440033). The 0.3.1 native proof passed, but its live user-API canary remained pending because the Pages controller returned HTTP 403 before reaching the application. [Cloudflare documents](https://developers.cloudflare.com/pages/platform/known-issues/#browser-integrity-check-on-pages) that Pages rejects the default Python urllib signature and recommends an application-specific User-Agent. Version 0.3.2 sends the truthful Cloud-3D-Studio identity on controller, worker-transfer and canary requests. Authentication, TLS, redirect refusal and existing network policies remain enforced. All **55 local tests**, Ruff and the offline lockfile check pass. The corrected live requests passed in the hosted run below.

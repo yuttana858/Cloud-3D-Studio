@@ -9,6 +9,7 @@ from pathlib import Path
 from . import __version__
 from .contracts import QUALITIES, ConversionError, Limits, validate_options
 from .jobs import digest
+from .progress import ProgressFile
 
 
 def apply_limits(limits):
@@ -43,10 +44,13 @@ def execute(request, directory):
     source_hash = digest(source)
     output = directory / "artifacts"
     output.mkdir()
+    progress = ProgressFile(directory)
     shape, source_info, cad, cad_validation = load_source(
-        source, kind, request["source_unit"], source_hash, output / "model.step"
+        source, kind, request["source_unit"], source_hash, output / "model.step", progress=progress
     )
-    mesh_validation = write_meshes(shape, output, cad, QUALITIES[request["quality"]], limits)
+    mesh_validation = write_meshes(
+        shape, output, cad, QUALITIES[request["quality"]], limits, progress=progress
+    )
     artifacts = {}
     for name, unit in (("step", "mm"), ("glb", "m"), ("stl", "mm")):
         path = output / ("model." + name)
@@ -89,13 +93,19 @@ def main():
         apply_limits(Limits(**request["limits"]))
         result = execute(request, directory)
     except Exception as error:
-        diagnostic = getattr(error, "diagnostic", None)
+        from .failures import MESSAGES, failure_code, failure_context
+        from .progress import read_progress
+
+        code = failure_code(error)
         result = {
             "ok": False,
             "error": {
-                "code": getattr(error, "code", None)
-                or getattr(diagnostic, "code", "conversion_failed"),
-                "message": str(error) or type(error).__name__,
+                "code": code,
+                "message": MESSAGES.get(
+                    code, "Native conversion failed; private source details withheld."
+                ),
+                "progress": read_progress(directory),
+                "diagnostic": failure_context(error),
             },
         }
     (directory / "result.json").write_text(json.dumps(result, allow_nan=False))

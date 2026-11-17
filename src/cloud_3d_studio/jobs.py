@@ -12,6 +12,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .contracts import ConversionError, Limits, validate_options
+from .progress import read_progress
 
 
 def digest(path: Path) -> str:
@@ -41,7 +42,9 @@ def stop_group(process):
         pass
 
 
-def run_process(arguments: list[str], directory: Path, timeout: float, cancel_check=None) -> dict:
+def run_process(
+    arguments: list[str], directory: Path, timeout: float, cancel_check=None, on_progress=None
+) -> dict:
     child_environment = {
         name: value
         for name, value in os.environ.items()
@@ -70,6 +73,10 @@ def run_process(arguments: list[str], directory: Path, timeout: float, cancel_ch
         try:
             deadline = time.monotonic() + timeout
             while process.poll() is None:
+                if on_progress:
+                    value = read_progress(directory)
+                    if value:
+                        on_progress(value)
                 if cancel_check and cancel_check():
                     raise ConversionError("cancelled", "The job was cancelled.")
                 remaining = deadline - time.monotonic()
@@ -138,6 +145,7 @@ def convert_file(
     *,
     _smoke=False,
     cancel_check=None,
+    on_progress=None,
 ) -> dict:
     if sys.platform != "linux":
         raise ConversionError("linux_required", "Use Linux, WSL or the Modal worker.")
@@ -170,10 +178,16 @@ def convert_file(
             directory,
             limits.timeout_seconds,
             cancel_check=cancel_check,
+            on_progress=on_progress,
         )
         if not result["ok"]:
             error = result["error"]
-            raise ConversionError(error["code"], error["message"])
+            failure = ConversionError(error["code"], error["message"])
+            failure.progress = error.get("progress")
+            failure.context = error.get("diagnostic")
+            if on_progress and failure.progress:
+                on_progress(failure.progress)
+            raise failure
         manifest = result.get("manifest")
         if not (
             isinstance(manifest, dict)

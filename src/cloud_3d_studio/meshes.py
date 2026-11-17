@@ -26,7 +26,7 @@ def body_shapes(shape):
             explorer.Next()
 
 
-def triangulate(shape, deflection: float, limits):
+def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None, face_count=None):
     from OCP.BRep import BRep_Tool
     from OCP.BRepMesh import BRepMesh_IncrementalMesh
     from OCP.BRepTools import BRepTools
@@ -35,11 +35,14 @@ def triangulate(shape, deflection: float, limits):
     from OCP.TopLoc import TopLoc_Location
     from OCP.TopoDS import TopoDS
 
+    progress("tessellate")
     BRepTools.Clean_s(shape)
     mesher = BRepMesh_IncrementalMesh(shape, deflection, False, 0.2, True)
     if not mesher.IsDone():
         raise ConversionError("meshing_failed", "OCCT meshing did not finish.")
     meshes, evidence, total = [], [], 0
+    processed = 0
+    progress("build_mesh", 0, face_count, "faces") if face_count else progress("build_mesh")
     for body, solid in body_shapes(shape):
         if len(meshes) >= limits.bodies:
             raise ConversionError("body_limit", "CAD body count exceeds the job limit.")
@@ -64,6 +67,9 @@ def triangulate(shape, deflection: float, limits):
                     corners[1], corners[2] = corners[2], corners[1]
                 faces.append(corners)
             explorer.Next()
+            processed += 1
+            if face_count:
+                progress("build_mesh", min(processed, face_count), face_count, "faces")
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
         # Validate a welded copy; retain separate CAD face vertices for sharp-edge shading.
         checked = mesh.copy()
@@ -117,8 +123,13 @@ def check_mesh(expected: dict, actual: dict, deflection: float, all_solid: bool)
         raise ConversionError("mesh_validation_failed", "Exported mesh changed physical volume.")
 
 
-def write_meshes(shape, destination: Path, cad: dict, deflection: float, limits):
-    meshes, bodies = triangulate(shape, deflection, limits)
+def write_meshes(
+    shape, destination: Path, cad: dict, deflection: float, limits, *, progress=lambda *args: None
+):
+    meshes, bodies = triangulate(
+        shape, deflection, limits, progress=progress, face_count=cad["topology"]["faces"]
+    )
+    progress("validate_mesh")
     combined = trimesh.util.concatenate(meshes)
     solid = all(body["expected_solid"] for body in bodies)
     check_mesh(cad, mesh_metrics(combined), deflection, solid)

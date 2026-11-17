@@ -121,7 +121,16 @@ def cold_check(path: Path) -> dict:
     return report
 
 
-def load_source(path: Path, kind: str, source_unit: str | None, source_hash: str, output: Path):
+def load_source(
+    path: Path,
+    kind: str,
+    source_unit: str | None,
+    source_hash: str,
+    output: Path,
+    *,
+    progress=lambda *args: None,
+):
+    progress("read_source")
     if kind == "step":
         shape, units = read_step(path)
         source = {"declared_units": units, "complete": True}
@@ -133,6 +142,7 @@ def load_source(path: Path, kind: str, source_unit: str | None, source_hash: str
         parsed = read_brep(
             path, limits=ParseLimits(max_file_size=50 * 1024 * 1024, max_diagnostics=1000)
         )
+        progress("build_geometry")
         converted = to_occt(
             parsed.brep,
             source_unit=source_unit,
@@ -161,8 +171,11 @@ def load_source(path: Path, kind: str, source_unit: str | None, source_hash: str
         }
     else:
         raise ConversionError("unsupported_format", "No reader is enabled for this CAD format.")
+    progress("validate_geometry")
     original = shape_metrics(shape)
+    progress("write_step")
     write_step(shape, output)
+    progress("validate_step")
     reimport = cold_check(output)
     compare_cad(original, reimport["metrics"])
     return shape, source, original, {"passed": True, "process_isolated": True, **reimport}
