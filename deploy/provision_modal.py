@@ -314,6 +314,36 @@ async def prove_and_provision(profile, settings):
                 await workspace.proxy_tokens.delete(created.token_id)
 
 
+async def verify_controller(settings):
+    """Exercise remote module startup and the attached secret, within a fixed bound."""
+    from modal._functions import _Function
+    from modal.client import _Client
+
+    try:
+        async with await _Client.from_credentials(
+            settings["tokenId"], settings["tokenSecret"]
+        ) as client:
+            controller = _Function.from_name(
+                settings["app"],
+                "cad_reconcile",
+                environment_name=settings["environment"],
+                client=client,
+            )
+            result = await asyncio.wait_for(controller.remote(), timeout=90)
+        if not isinstance(result, dict) or result.get("accepted") is not True:
+            raise BridgeError("The deployed scheduled controller did not accept its pass.")
+    except BridgeError:
+        raise
+    except TimeoutError:
+        raise BridgeError(
+            "The deployed scheduled controller exceeded its startup check limit."
+        ) from None
+    except Exception:
+        raise BridgeError(
+            "The deployed scheduled controller could not complete its startup check."
+        ) from None
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", required=True, choices=("production", "preview"))
@@ -334,11 +364,13 @@ def main(argv=None):
         enable_control = controller_ready(control_key(args.profile, runtime))
         deploy(settings, verified=True, controller=secret_name)
         proxy_probe(runtime["endpoint"], runtime, settings, require_ready=True)
+        if enable_control:
+            asyncio.run(verify_controller(settings))
         print(
             "Native STEP/GLB/STL proof passed; protected job gateway is ready; runtime credentials are saved in Vault."
         )
         print(
-            "Background reconciliation is enabled."
+            "Background reconciliation is enabled; the deployed controller accepted its startup check."
             if enable_control
             else "Background reconciliation is installed and will wait for Auto3D readiness."
         )
