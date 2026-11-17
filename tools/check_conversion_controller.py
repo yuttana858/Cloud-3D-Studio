@@ -84,6 +84,74 @@ def probe_filters():
             print("Database filter " + label + ": HTTP " + str(status) + "; code " + code + ".")
 
 
+def startup_labels(message):
+    """Strict public module/file labels only; discard arbitrary log messages."""
+    labels = set()
+    for line in message.splitlines():
+        match = re.search(r"ModuleNotFoundError: No module named '([A-Za-z0-9_.]+)'", line)
+        if match and match[1].split(".")[0] in {
+            "deploy",
+            "cloud_3d_studio",
+            "modal",
+            "numpy",
+            "OCP",
+            "parasolid_kit",
+        }:
+            labels.add("missing module " + match[1])
+        for name in ("requirements-worker.lock", "LICENSE", "THIRD_PARTY_NOTICES.md"):
+            if "FileNotFoundError" in line and name in line:
+                labels.add("missing deployment file " + name)
+        match = re.search(
+            r'File "[^"\n]*/(modal_app|remote|_container_entrypoint)\.py", line ([0-9]{1,8})', line
+        )
+        if match:
+            labels.add(match[1] + ":" + match[2])
+        for category in (
+            "ModuleNotFoundError",
+            "FileNotFoundError",
+            "ImportError",
+            "AttributeError",
+            "RuntimeError",
+            "MemoryError",
+            "OSError",
+            "TypeError",
+            "ValueError",
+        ):
+            if re.search(r"\b" + category + r":", line):
+                labels.add(category)
+    return sorted(labels)[:20]
+
+
+async def diagnose_controller(settings):
+    from modal._functions import _Function
+    from modal.client import _Client
+
+    async with await _Client.from_credentials(
+        settings["tokenId"], settings["tokenSecret"]
+    ) as client:
+        controller = _Function.from_name(
+            settings["app"],
+            "cad_reconcile",
+            environment_name=settings["environment"],
+            client=client,
+        )
+        stats = await controller.get_current_stats()
+        print(
+            "Controller counts: "
+            + json.dumps(
+                {
+                    name: getattr(stats, name)
+                    for name in ("backlog", "num_total_runners", "num_running_inputs")
+                },
+                sort_keys=True,
+            )
+        )
+        labels = set()
+        async for entry in controller.logs.tail(entries=100):
+            labels.update(startup_labels(entry.message))
+        print("Controller startup labels: " + json.dumps(sorted(labels)[:20]))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -107,6 +175,7 @@ def main(argv=None):
         print("The controller API accepted one bounded reconciliation pass.")
         settings = read_deployment("production")
         asyncio.run(verify_target(settings))
+        asyncio.run(asyncio.wait_for(diagnose_controller(settings), timeout=30))
         asyncio.run(verify_controller(settings))
         print("The deployed scheduled controller also accepted its pass.")
         return 0
