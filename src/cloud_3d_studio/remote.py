@@ -14,7 +14,7 @@ from uuid import UUID
 
 from . import HTTP_USER_AGENT
 from .contracts import ConversionError, Limits, validate_options
-from .jobs import convert_file, digest
+from .jobs import convert_file, diagnose_file, digest
 from .progress import progress_value
 
 AUTO3D_ORIGINS = ("https://auto3d-5av.pages.dev",)
@@ -103,6 +103,7 @@ class JobTransport:
                 **(headers or {}),
                 "Authorization": "Bearer " + self.reference.token,
                 "User-Agent": HTTP_USER_AGENT,
+                "X-Auto3D-Diagnostic-Protocol": "1",
             },
         )
         try:
@@ -181,11 +182,14 @@ def validate_claim(claim):
         raise ConversionError("protocol_error", "Invalid source metadata.") from None
 
 
-def run_owned_job(reference, *, transport_factory=JobTransport, converter=convert_file):
+def run_owned_job(
+    reference, *, transport_factory=JobTransport, converter=convert_file, diagnoser=diagnose_file
+):
     transport = transport_factory(reference)
     stopped, cancelled = threading.Event(), threading.Event()
     monitor = None
     progress_protocol = False
+    diagnostic_protocol = False
     current = [{"stage": "downloading", "progress": progress_value("download_source")}]
 
     def update(value):
@@ -211,6 +215,14 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
         if claim.get("accepted") is not True:
             return {"accepted": False}
         progress_protocol = claim.get("progressProtocol") == 1
+        diagnostic_protocol = claim.get("diagnosticProtocol") == 1
+        purpose = claim.get("purpose", "conversion")
+        if (
+            purpose not in ("conversion", "diagnostic")
+            or purpose == "diagnostic"
+            and not diagnostic_protocol
+        ):
+            raise ConversionError("protocol_error", "Invalid job purpose.")
         source = validate_claim(claim)
 
         def progress():
@@ -248,6 +260,20 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
             notify()
             if cancelled.is_set():
                 raise ConversionError("cancelled", "The job is no longer active.")
+            if purpose == "diagnostic":
+                report = diagnoser(
+                    input_path,
+                    source["unit"],
+                    claim["quality"],
+                    cancel_check=cancelled.is_set,
+                    on_progress=update,
+                )
+                stopped.set()
+                monitor.join(timeout=46)
+                if cancelled.is_set():
+                    raise ConversionError("cancelled", "The job is no longer active.")
+                transport.json("complete", {"report": report})
+                return {"accepted": True, "completed": True}
             output = root / "result"
             converter(
                 input_path,
@@ -290,6 +316,11 @@ def run_owned_job(reference, *, transport_factory=JobTransport, converter=conver
                 {
                     "code": code,
                     **({"diagnostic": context} if context and progress_protocol else {}),
+                    **(
+                        {"report": error.report}
+                        if diagnostic_protocol and getattr(error, "report", None)
+                        else {}
+                    ),
                 },
             )
         except Exception:

@@ -89,6 +89,62 @@ class FakeCanary:
 
 
 class CanaryTests(unittest.TestCase):
+    def test_diagnostic_canary_reuses_upload_and_always_removes_the_test_job(self):
+        from cloud_3d_studio.contracts import ConversionError
+        from cloud_3d_studio.diagnostics import diagnostic_report
+
+        for mode in ("success", "leak", "missing_report", "not_queued"):
+            primary, outsider = object(), object()
+            state = {"phase": "awaiting_upload", "uploads": 0, "deleted": False, "diagnoses": 0}
+            job_id = str(uuid4())
+            report = diagnostic_report(
+                ConversionError("invalid_parasolid", "private"), {"phase": "read_source"}
+            )
+
+            def api(account, path="", method="GET", body=None, binary=False):
+                self.assertNotIn("/artifacts/", path)
+                if method == "DELETE":
+                    state["deleted"] = True
+                    return {"deleted": True}
+                if account is outsider:
+                    if mode != "leak":
+                        raise canary_modal.CanaryError("Canary request failed with HTTP 404.")
+                    return {"job": {}}
+                if not path:
+                    state["hash"] = body["sourceSha256"]
+                    return {"job": {"id": job_id}}
+                if path.endswith("/source"):
+                    self.assertEqual(hashlib.sha256(body).hexdigest(), state["hash"])
+                    state["uploads"] += 1
+                    return {"uploaded": True}
+                if path.endswith("/submit"):
+                    state["phase"] = "failed"
+                    return {"job": {}}
+                if path.endswith("/diagnose"):
+                    state["diagnoses"] += 1
+                    return {
+                        "job": {"purpose": "conversion" if mode == "not_queued" else "diagnostic"}
+                    }
+                return {
+                    "job": {
+                        "state": state["phase"],
+                        "revision": 1,
+                        "errorCode": "invalid_parasolid",
+                        "source": {"sha256": state["hash"]},
+                        "diagnostics": {"report": {} if mode == "missing_report" else report},
+                    }
+                }
+
+            fake = SimpleNamespace(api=api)
+            if mode == "success":
+                self.assertTrue(canary_modal.run_diagnostic_canary(fake, primary, outsider))
+                self.assertEqual(state["uploads"], 1)
+                self.assertEqual(state["diagnoses"], 1)
+            else:
+                with self.assertRaises(canary_modal.CanaryError):
+                    canary_modal.run_diagnostic_canary(fake, primary, outsider)
+            self.assertTrue(state["deleted"])
+
     def test_readiness_diagnostics_do_not_print_response_or_credentials(self):
         for outcome, expected in (
             (io.BytesIO(b'{"ready":true}'), "ready."),

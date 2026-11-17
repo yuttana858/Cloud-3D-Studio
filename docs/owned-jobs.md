@@ -1,4 +1,14 @@
-# Private owned conversion jobs — 0.3.5
+# Private owned conversion jobs — 0.4.0
+
+## Server diagnostics
+
+Auto3D may claim a job with `purpose: diagnostic` only after both ends negotiate diagnostic protocol 1. The four-field Modal job reference is unchanged: no CAD, account key, file URL or diagnostic report enters Modal arguments/results. Both purposes use the same single bounded CPU worker. The parent verifies the existing private source length/hash and runs a credential-free diagnostic subprocess for at most 240 seconds. Temporary source/STEP/log files stay on the server and are removed when the pass ends.
+
+The diagnostic checks source reading, complete geometry construction, CAD validity and independent STEP reimport; it does not tessellate or publish models. A strict report contains fixed check outcomes, library versions, an allowlisted public reader code/exception category and up to four public package code-file/line labels. It excludes messages, raw logs, dimensions, coordinates, source text/names, entity IDs and arbitrary details. The owned server API validates the report before storing or exposing it to the owner/authorized agent. A successful diagnostic is not a successful mesh conversion.
+
+Ordinary native failures attach the same report only when Pages negotiates protocol 1; older deployments retain their existing failure payload. Manual diagnostics preserve the original failed conversion and its attempt count. Their independent two-dispatch limit, shared owner/global queue limits, ten-minute queue deadline and original source retention are authoritative in Auto3D. Diagnostic artifacts cannot publish through the transfer API. Cancellation, disabled accounts, superseded capabilities, deletion and expiry revoke the normal owned worker path.
+
+The live canary adds an intentionally invalid public Parasolid fixture, checks its automatic report, queues a second diagnostic using the existing source, confirms owner-only report access and absence of model publication, then removes it. It prints fixed verification results; neither source contents nor reports enter workflow logs. Actual supplier-file diagnosis remains separate from public calibration.
 
 Version 0.3.5 also preserves the nonsecret controller secret **name** in the gateway image environment. Modal reconstructs a function's dependency graph during remote import; that graph must include the same named Secret as deployment, even though its value is attached only to the controller. The key is never baked into an image. A subprocess regression reconstructs the deployed function from only the captured image environment and verifies identical dependency types/counts, with the actual key absent.
 

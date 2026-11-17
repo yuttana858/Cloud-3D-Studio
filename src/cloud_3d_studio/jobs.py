@@ -185,6 +185,7 @@ def convert_file(
             failure = ConversionError(error["code"], error["message"])
             failure.progress = error.get("progress")
             failure.context = error.get("diagnostic")
+            failure.report = error.get("report")
             if on_progress and failure.progress:
                 on_progress(failure.progress)
             raise failure
@@ -240,6 +241,37 @@ def convert_file(
                 "output_exists", "An output directory appeared; no existing files were replaced."
             ) from None
         return {"ok": True, "output_directory": str(output), "manifest": manifest}
+
+
+def diagnose_file(
+    source, source_unit=None, quality="standard", *, cancel_check=None, on_progress=None
+):
+    """Inspect on the private server, returning only a bounded geometry-free report."""
+    limits = Limits(timeout_seconds=240, output_bytes=64 * 1024 * 1024)
+    validate_options(source.suffix, source_unit, quality)
+    with tempfile.TemporaryDirectory(prefix=".cloud3d-diagnostic-", dir=source.parent) as temporary:
+        directory = Path(temporary)
+        frozen = frozen_input(source, directory, limits.input_bytes)
+        request = {
+            "command": "diagnose",
+            "source": str(frozen),
+            "source_unit": source_unit,
+            "quality": quality,
+            "limits": asdict(limits),
+        }
+        path = directory / "request.json"
+        path.write_text(json.dumps(request))
+        result = run_process(
+            [sys.executable, "-m", "cloud_3d_studio.worker", str(path)],
+            directory,
+            limits.timeout_seconds,
+            cancel_check=cancel_check,
+            on_progress=on_progress,
+        )
+        report = result.get("report")
+        if not result["ok"] or not isinstance(report, dict) or len(json.dumps(report)) > 8192:
+            raise ConversionError("worker_failed", "The server diagnostic could not complete.")
+        return report
 
 
 def self_test() -> dict:

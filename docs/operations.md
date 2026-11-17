@@ -1,5 +1,9 @@
 # Operations and validation evidence
 
+## Owned server diagnostics — 0.4.0 candidate
+
+Adds credential-free, bounded server inspection of existing private uploads and a strict geometry-free report. Native conversion failures negotiate automatic reports with Pages; manual diagnostic jobs use the same worker/capability/source transport and cannot upload geometry. Reports leave through the owned API rather than Modal return values or logs. Local fixtures check valid STEP inspection, failed Parasolid reading, root-cause redaction, no published artifacts, temporary-file cleanup and compatibility with older Pages. The live user-API canary must additionally verify automatic reports, private upload reuse, cross-account denial and cleanup on Auto3D 0.84.0. All 77 native/transport/controller/canary tests pass (90.780 seconds while browser regressions ran), with Ruff lint/format and the offline lock check passing. Hosted and actual supplier-file outcomes remain separate gates and will be recorded after deployment.
+
 ## Controller dependency reconstruction — 0.3.5
 
 The 0.3.4 live deployment gate correctly failed in [44189856000](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44189856000), despite its native proof passing. The follow-up operator [44190652562](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44190652562) confirmed two queued inputs, zero running inputs/containers, and a startup traceback at Modal's dependency hydration check (`_container_entrypoint.py:380` in SDK 1.6.4). Keeping the function symbol alone was insufficient: the remote definition still lacked the Secret dependency because the deployment flag was absent.

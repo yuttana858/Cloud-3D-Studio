@@ -2,7 +2,7 @@
 
 Shared compute services for Auto3D. The first implementation is a CPU-only CAD conversion foundation: supported Parasolid and STEP input to validated STEP, GLB and STL plus a unit/provenance manifest. Blender rendering remains a later, separate worker.
 
-Version: **0.3.5**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
+Version: **0.4.0**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
 
 ## Local development
 
@@ -26,6 +26,8 @@ uv run cloud3d convert /path/to/product.x_t --source-unit m --output out/product
 The Parasolid coordinate unit must be explicit; `m` above is only an example. STEP reads its declared units. Inputs and outputs stay local for these commands. The source repository is public: private CAD belongs outside Git or under ignored `private/`, and outputs under ignored `out/`.
 
 The Modal module contains private SDK-authenticated CPU functions and a proxy-authenticated job gateway. Only short-lived, attempt-scoped job references cross the gateway. CAD bytes pass through Auto3D's private storage API, never through Modal Function arguments/results. One bounded native worker, zero minimum warm containers and CPU-only images reuse the existing workspace.
+
+Auto3D can also inspect an existing failed upload on the server. The bounded diagnostic child returns only fixed stage checks and public library error locations to the owner/authorized agent; source CAD, geometry and raw logs remain on the server. Diagnostic completion never publishes a model or resets conversion attempts. See [owned server diagnostics](docs/owned-jobs.md#server-diagnostics).
 
 After saving the Vault record, use the [manual GitHub connection check](docs/modal-connection-check.md) to verify its Modal authentication from a trusted runner. This check does not deploy or run a CAD conversion.
 
