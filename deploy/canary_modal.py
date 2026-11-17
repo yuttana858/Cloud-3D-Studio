@@ -120,7 +120,8 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
         accounts.append(outsider)
         source = SOURCE.read_bytes()
         checksum = hashlib.sha256(source).hexdigest()
-        if not client.api(primary, "/capabilities").get("ready"):
+        capabilities = client.api(primary, "/capabilities")
+        if not capabilities.get("ready"):
             raise CanaryError("Auto3D CAD service is not ready.")
         result = client.api(
             primary,
@@ -161,6 +162,11 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
         print("Live calibration: checking dimensions and all artifact hashes/units.")
         summary = job["summary"]
         if (
+            capabilities.get("progressProtocol") == 1
+            and summary.get("progressReported") is not True
+        ):
+            raise CanaryError("The live worker did not publish negotiated progress telemetry.")
+        if (
             summary.get("stepReimportPassed") is not True
             or summary.get("meshReimportPassed") is not True
             or len(summary.get("dimensionsMm", [])) != 3
@@ -187,6 +193,7 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
                 raise CanaryError("The live artifact hash, length or units failed.")
         return {
             "passed": True,
+            "progressTelemetry": capabilities.get("progressProtocol") == 1,
             "dimensionsMm": [40, 30, 20],
             "twoAccountIsolation": True,
             "artifacts": ["step", "glb", "stl", "manifest"],
@@ -224,9 +231,14 @@ def main(argv=None):
         if not runtime or not controller_ready(control_key("production", runtime["settings"])):
             print("Auto3D connector is not live yet; public-fixture canary is pending.")
             return 0
-        run_canary()
+        result = run_canary()
         print(
             "Live Auto3D private conversion passed: two-account isolation, 40 x 30 x 20 mm, all artifact hashes/units. Temporary identities and files were removed."
+        )
+        print(
+            "Live progress telemetry was negotiated and verified."
+            if result["progressTelemetry"]
+            else "This app version does not advertise native progress telemetry."
         )
         return 0
     except (CanaryError, BridgeError) as error:

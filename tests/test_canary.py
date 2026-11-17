@@ -41,7 +41,7 @@ class FakeCanary:
 
     def api(self, account, path="", method="GET", body=None, binary=False):
         if path == "/capabilities":
-            return {"ready": True}
+            return {"ready": True, "progressProtocol": 1}
         if method == "DELETE":
             self.deleted_job = True
             return {"deleted": True}
@@ -82,6 +82,7 @@ class FakeCanary:
                     "dimensionsMm": [40, 30, 20],
                     "stepReimportPassed": True,
                     "meshReimportPassed": True,
+                    "progressReported": True,
                 },
             }
         }
@@ -134,6 +135,7 @@ class CanaryTests(unittest.TestCase):
         fake = FakeCanary()
         result = canary_modal.run_canary(fake)
         self.assertTrue(result["passed"])
+        self.assertTrue(result["progressTelemetry"])
         self.assertEqual(len(fake.deleted), 2)
         self.assertTrue(fake.deleted_job)
         self.assertNotIn("private", json.dumps(result))
@@ -153,6 +155,20 @@ class CanaryTests(unittest.TestCase):
         self.assertIn("cleanup", str(failure.exception))
         self.assertNotIn("private diagnostic", str(failure.exception))
         self.assertEqual(len(fake.deleted), 2)
+
+    def test_missing_negotiated_progress_fails_and_still_cleans_test_data(self):
+        class MissingProgress(FakeCanary):
+            def api(self, *args, **kwargs):
+                result = super().api(*args, **kwargs)
+                if isinstance(result, dict) and result.get("job", {}).get("summary"):
+                    result["job"]["summary"].pop("progressReported", None)
+                return result
+
+        fake = MissingProgress()
+        with self.assertRaisesRegex(canary_modal.CanaryError, "progress telemetry"):
+            canary_modal.run_canary(fake)
+        self.assertEqual(len(fake.deleted), 2)
+        self.assertTrue(fake.deleted_job)
 
     def test_default_cli_performs_no_account_or_network_mutation(self):
         with (
