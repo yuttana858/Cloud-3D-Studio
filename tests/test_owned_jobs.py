@@ -220,6 +220,19 @@ class JobGatewayTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ProvisionProofTests(unittest.TestCase):
+    def test_provider_origin_normalizes_one_root_slash_and_rejects_non_origins(self):
+        origin = "https://fixture--cad-gateway.modal.run"
+        self.assertEqual(provision_modal.gateway_endpoint(origin + "/"), origin)
+        for value in (
+            None,
+            origin + "/path",
+            origin + "?key=private",
+            "https://evil.test",
+            "https://user:password@fixture.modal.run",
+        ):
+            with self.assertRaises(provision_modal.BridgeError):
+                provision_modal.gateway_endpoint(value)
+
     def test_all_three_artifacts_and_independent_checks_are_required(self):
         proof = {
             "ok": True,
