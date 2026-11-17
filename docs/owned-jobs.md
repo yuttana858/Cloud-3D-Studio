@@ -1,4 +1,6 @@
-# Private owned conversion jobs — 0.3.1
+# Private owned conversion jobs — 0.3.3
+
+Version 0.3.3 adds geometry-free phase telemetry from the isolated native child. Reading, construction, validation, STEP writing/reimport, tessellation and mesh validation are indeterminate; source bytes, processed faces and acknowledged artifact counts provide measured current-stage percentages. The atomic progress file is bounded and contains no source text, names or geometry. The parent renews leases at least every ten seconds and sends changed phase/count snapshots at most once per second. Failure codes distinguish unsupported schemas/entities, malformed input, resource limits and unexpected worker failures. Optional server-only diagnostics contain a fixed exception category and up to four code-file/line locations; never messages, source lines or local variables. Ordinary job DTOs do not expose those diagnostics.
 
 Auto3D owns authentication, metadata and private R2 files. The Modal gateway accepts only a canonical job UUID, attempt UUID, 43-character bearer capability and the fixed production Auto3D origin. It accepts no source URLs, arbitrary callbacks, CAD bytes or account identifiers. Auto3D stores only the capability digest; it expires with the job or attempt. Modal's workspace proxy authentication protects both dispatch and cancellation.
 
