@@ -203,8 +203,19 @@ def controller_ready(key):
     try:
         with urllib.request.build_opener(NoRedirect).open(request, timeout=15) as response:
             data = response.read(4097)
-        return len(data) <= 4096 and json.loads(data).get("ready") is True
+        ready = len(data) <= 4096 and json.loads(data).get("ready") is True
+        print("Auto3D controller readiness: " + ("ready." if ready else "response not ready."))
+        return ready
+    except urllib.error.HTTPError as error:
+        status = error.code
+        error.close()
+        print("Auto3D controller readiness: HTTP " + str(status) + ".")
+        return False
+    except (ValueError, AttributeError):
+        print("Auto3D controller readiness: invalid response.")
+        return False
     except Exception:
+        print("Auto3D controller readiness: network check failed.")
         return False
 
 
