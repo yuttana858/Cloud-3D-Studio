@@ -1,0 +1,41 @@
+name: Build verified Modal CAD service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'deploy/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/modal-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modal-production-build
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'yuttana858/Cloud-3D-Studio' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install locked deployment client
+        run: python -m pip install --disable-pip-version-check --require-hashes -r deploy/requirements-bridge.lock
+      - name: Build image, verify synthetic CAD, provision private gateway
+        env:
+          SUPABASE_URL: https://iesepcoxqochycckbwoh.supabase.co
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PYTHONPATH: src
+          MODAL_LOGLEVEL: WARNING
+        run: python -m deploy.provision_modal --profile production --deploy

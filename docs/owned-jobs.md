@@ -1,0 +1,21 @@
+# Private owned conversion jobs — 0.3.0
+
+Auto3D owns authentication, metadata and private R2 files. The Modal gateway accepts only a canonical job UUID, attempt UUID, 43-character bearer capability and the fixed production Auto3D origin. It accepts no source URLs, arbitrary callbacks, CAD bytes or account identifiers. Auto3D stores only the capability digest; it expires with the job or attempt. Modal's workspace proxy authentication protects both dispatch and cancellation.
+
+The worker claims atomically, streams the source and verifies its length/SHA-256, then runs the native converter in a private temporary directory. The native child receives no account, Supabase, Modal or controller credentials. Heartbeats renew the lease and poll cancellation every ten seconds. All processes are reaped and files removed. Independent STEP and GLB/STL reimports must pass before four immutable artifacts upload; only then can Auto3D publish `ready`. Late/cancelled/expired/superseded attempts cannot publish.
+
+Cloud limits: 50 MiB source; 64 MiB per geometry artifact; 16 MiB manifest; 208 MiB combined output; native timeout 480 seconds; one two-core, 4 GiB requested / 8 GiB maximum worker; no automatic provider retries. Auto3D additionally bounds per-account/global queueing and retries. Retention is managed by Auto3D's private storage cleanup; no persistent Modal data volume is used.
+
+## Deployment and credentials
+
+1. Open [Supabase API keys](https://supabase.com/dashboard/project/iesepcoxqochycckbwoh/settings/api-keys/). In **Publishable and secret API keys**, create a dedicated **Secret key** named `cloud3d-github-runner`. Copy its complete `sb_secret_…` value. Do not use the publishable key, anon key or JWT signing secret. A legacy `service_role` API JWT is also supported, but the new Secret API key is preferred.
+2. Open [Cloud-3D-Studio Actions secrets](https://github.com/yuttana858/Cloud-3D-Studio/settings/secrets/actions). Select **Secrets → New repository secret**. Set **Name** to exactly `SUPABASE_SECRET_KEY`; put the copied value into **Secret**, then select **Add secret**. The Supabase key's label is not the GitHub secret name. Do not paste values in chat, issues or files.
+3. Save the deployment `ak-`/`as-` pair and exact workspace/environment together in Auto3D's Vault bridge. Runtime `wk-`/`ws-` tokens are different; the build provisions that pair directly into Vault without exposing it in logs.
+4. Run **Check Modal connection from Vault** on main with profile `production`. This verifies token acceptance and actual target identity, without compute or deployment.
+5. After reviewed source merges to main, **Build verified Modal CAD service** runs automatically. It can also be run manually from **Actions → Build verified Modal CAD service → Run workflow → main**. The workflow installs only the hash-locked SDK on the runner; native dependencies build inside Modal.
+6. The build first deploys with submissions disabled, runs the synthetic native proof, provisions/reuses the protected runtime endpoint, and redeploys verified. A failed proof never enables new submissions. If Auto3D's controller health is not yet ready, the gateway can be ready while scheduled reconciliation remains disabled; rerun this same workflow after the Auto3D rollout.
+7. In Auto3D, **Preferences → Modal connections → Test connection** must report the expected workspace/environment and verified conversion readiness. Convert a public sample first, then test the supplier file privately from the Convert CAD dialog.
+
+The named Modal secret `auto3d-conversion-control-production` contains only a profile/target-bound HMAC-derived controller key. It is attached solely to the tiny scheduled controller; it is absent from the native worker. No Supabase key is stored in a Modal image or sent to the browser. If a Vault save acknowledgment is lost, provisioning re-reads before cleanup and never revokes a pair that may already be committed.
+
+No billing tier, workspace, GPU or spending-limit change is performed. Build/run/idle time still consumes the existing workspace's credits or metered allowance. Confirm actual plan and usage in the Modal dashboard; these CPU bounds are not a promise of a zero-dollar invoice.

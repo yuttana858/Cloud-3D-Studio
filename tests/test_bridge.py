@@ -37,7 +37,7 @@ class GatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["workspace"], "acme")
         self.assertEqual(result["environment"], "main")
         self.assertFalse(result["conversionReady"])
-        self.assertEqual((await self.request(app, "/jobs", "POST"))[0], 404)
+        self.assertEqual((await self.request(app, "/jobs", "POST"))[0], 503)
         self.assertEqual((await self.request(app, method="POST"))[0], 405)
 
     async def test_unconfigured_identity_fails_closed(self):

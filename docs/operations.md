@@ -2,9 +2,11 @@
 
 ## Current state
 
-Version 0.1.0 is the locally validated CPU foundation. No Modal deployment or live account/billing verification has been performed by this work. The workspace currently has no Modal credentials or profile. Supplier Parasolid acceptance remains pending.
+Version 0.3.0 extends the locally validated foundation with owned transfers and automated provisioning. On November 17, GitHub run [44110280460](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44110280460), attempt 2, successfully read the saved deployment pair from Vault and authenticated workspace `yuttana858`, environment `main`. Hosted native deployment/proof is next; supplier Parasolid acceptance and measured billing usage remain pending. Historical evidence below describes its stated version, not current credential availability.
 
 The authoritative sequence and exit gates are in [conversion-roadmap.md](conversion-roadmap.md). Do not label a remote milestone complete based on local tests.
+
+The 0.3.0 candidate passes **45 tests** (25.834 seconds): the native CAD regressions plus owned transfer/cancellation/cleanup, credential-free native environment, fixed-origin dispatch, runtime pair creation/reuse and lost-acknowledgment recovery. Ruff lint/format and conditional scheduled-controller declaration imports pass. These are local source checks; hosted build results are recorded separately after deployment.
 
 ## Local checks
 

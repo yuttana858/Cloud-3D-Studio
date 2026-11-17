@@ -2,7 +2,7 @@
 
 Shared compute services for Auto3D. The first implementation is a CPU-only CAD conversion foundation: supported Parasolid and STEP input to validated STEP, GLB and STL plus a unit/provenance manifest. Blender rendering remains a later, separate worker.
 
-Version: **0.2.0**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/docs/parasolid-local-download/docs/parasolid-modal-integration-plan.md).
+Version: **0.3.0**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/feat/modal-credential-bridge/docs/parasolid-modal-integration-plan.md).
 
 ## Local development
 
@@ -25,6 +25,8 @@ uv run cloud3d convert /path/to/product.x_t --source-unit m --output out/product
 
 The Parasolid coordinate unit must be explicit; `m` above is only an example. STEP reads its declared units. Inputs and outputs stay local for these commands. The source repository is public: private CAD belongs outside Git or under ignored `private/`, and outputs under ignored `out/`.
 
-The Modal module contains private SDK-authenticated CPU smoke tests and a small proxy-authenticated metadata gateway, with no job-submission web route, GPU or permanent warm pool. Its existence does not mean it has been deployed. The Vault runner reads one complete deployment token pair from Supabase and verifies the actual workspace and environment before any explicit deployment. Remote execution still needs permitted network access and a verified spending policy. See the operations and credential guides.
+The Modal module contains private SDK-authenticated CPU functions and a proxy-authenticated job gateway. Only short-lived, attempt-scoped job references cross the gateway. CAD bytes pass through Auto3D's private storage API, never through Modal Function arguments/results. One bounded native worker, zero minimum warm containers and CPU-only images reuse the existing workspace.
 
 After saving the Vault record, use the [manual GitHub connection check](docs/modal-connection-check.md) to verify its Modal authentication from a trusted runner. This check does not deploy or run a CAD conversion.
+
+The production build workflow deploys reviewed main, independently checks a synthetic 40 × 30 × 20 mm box, provisions a runtime proxy pair directly into Vault, then enables submission. A five-minute controller is enabled only when the matching Auto3D connector reports ready. See [owned job operation](docs/owned-jobs.md). Positive supplier Parasolid acceptance is still required; the reader supports a subset of Parasolid, not every kernel version/entity.

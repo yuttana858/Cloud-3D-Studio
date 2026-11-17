@@ -60,6 +60,7 @@ gateway_image = (
         {
             "CLOUD3D_WORKSPACE": os.environ.get("CLOUD3D_WORKSPACE", ""),
             "CLOUD3D_ENVIRONMENT": os.environ.get("CLOUD3D_ENVIRONMENT", ""),
+            "CLOUD3D_NATIVE_VERIFIED": os.environ.get("CLOUD3D_NATIVE_VERIFIED", "0"),
         }
     )
     .add_local_python_source("cloud_3d_studio")
@@ -80,4 +81,64 @@ gateway_image = (
 def cad_gateway():
     from cloud_3d_studio.gateway import connection_application
 
-    return connection_application(os.environ)
+    async def dispatch(reference):
+        call = await cad_convert_job.spawn.aio(reference)
+        return call.object_id
+
+    async def cancel(call_id):
+        call = modal.FunctionCall.from_id(call_id)
+        await call.cancel.aio(terminate_containers=True)
+
+    return connection_application(os.environ, dispatch=dispatch, cancel=cancel)
+
+
+@app.function(
+    image=image,
+    cpu=(2.0, 2.0),
+    memory=(4096, 8192),
+    timeout=900,
+    retries=0,
+    min_containers=0,
+    max_containers=1,
+    scaledown_window=10,
+    enable_memory_snapshot=False,
+)
+def cad_convert_job(payload):
+    from cloud_3d_studio.remote import JobReference, run_owned_job
+
+    return run_owned_job(JobReference.parse(payload))
+
+
+if os.environ.get("CLOUD3D_CONTROL_SECRET_NAME"):
+
+    @app.function(
+        image=gateway_image,
+        cpu=(0.125, 0.125),
+        memory=(128, 256),
+        timeout=60,
+        min_containers=0,
+        max_containers=1,
+        scaledown_window=2,
+        schedule=modal.Period(minutes=5),
+        secrets=[modal.Secret.from_name(os.environ["CLOUD3D_CONTROL_SECRET_NAME"])],
+        enable_memory_snapshot=False,
+    )
+    def cad_reconcile():
+        import urllib.request
+
+        from cloud_3d_studio.remote import NoRedirect
+
+        request = urllib.request.Request(
+            "https://auto3d-5av.pages.dev/internal/conversion-control/reconcile",
+            method="POST",
+            data=b"{}",
+            headers={
+                "Authorization": "Bearer " + os.environ["AUTO3D_CONVERSION_CONTROL_SECRET"],
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.build_opener(NoRedirect).open(request, timeout=45) as response:
+                return {"accepted": response.status == 200}
+        except Exception:
+            return {"accepted": False}
