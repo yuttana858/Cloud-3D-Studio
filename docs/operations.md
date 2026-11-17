@@ -1,5 +1,9 @@
 # Operations and validation evidence
 
+## Pages client identification — 0.3.2
+
+Auto3D 0.79.0 deployed in [run 44147440033](https://github.com/yuttana858/Auto3D/actions/runs/44147440033). The 0.3.1 native proof passed, but its live user-API canary remained pending because the Pages controller returned HTTP 403 before reaching the application. [Cloudflare documents](https://developers.cloudflare.com/pages/platform/known-issues/#browser-integrity-check-on-pages) that Pages rejects the default Python urllib signature and recommends an application-specific User-Agent. Version 0.3.2 sends the truthful Cloud-3D-Studio identity on controller, worker-transfer and canary requests. Authentication, TLS, redirect refusal and existing network policies remain enforced. All **55 local tests**, Ruff and the offline lockfile check pass; hosted 0.3.2 conversion evidence follows the rollout.
+
 ## Current state
 
 Version 0.3.1 extends the locally validated foundation with owned transfers and automated provisioning. On November 17, GitHub run [44110280460](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44110280460), attempt 2, successfully read the saved deployment pair from Vault and authenticated workspace `yuttana858`, environment `main`. Hosted native proof and protected gateway provisioning passed in [run 44131313665](https://github.com/yuttana858/Cloud-3D-Studio/actions/runs/44131313665) at source 747889f: exact 40 × 30 × 20 mm and independent STEP/GLB/STL checks. Supplier Parasolid acceptance and measured billing usage remain pending. Historical evidence below describes its stated version, not current credential availability.

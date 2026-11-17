@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+from cloud_3d_studio import HTTP_USER_AGENT
 from cloud_3d_studio.remote import reconcile_control
 from deploy import canary_modal, provision_modal
 
@@ -110,6 +111,24 @@ class CanaryTests(unittest.TestCase):
             self.assertEqual(ready, expected == "ready.")
             self.assertIn(expected, output.getvalue())
             self.assertNotIn("private", output.getvalue())
+            self.assertEqual(
+                opener.open.call_args.args[0].get_header("User-agent"), HTTP_USER_AGENT
+            )
+
+    def test_canary_http_identifies_the_application(self):
+        opener = Mock()
+        opener.open.return_value = io.BytesIO(b'{"ready":true}')
+        with (
+            patch.object(
+                canary_modal,
+                "supabase_connection",
+                return_value=("https://fixture.supabase.co", {}),
+            ),
+            patch.object(canary_modal.urllib.request, "build_opener", return_value=opener),
+        ):
+            client = canary_modal.CanaryClient()
+            client.request("https://auto3d-5av.pages.dev/internal/conversion-control/health")
+        self.assertEqual(opener.open.call_args.args[0].get_header("User-agent"), HTTP_USER_AGENT)
 
     def test_explicit_success_validates_all_files_and_removes_both_accounts(self):
         fake = FakeCanary()
@@ -154,6 +173,8 @@ class CanaryTests(unittest.TestCase):
             with patch("cloud_3d_studio.remote.urllib.request.build_opener", return_value=opener):
                 self.assertEqual(reconcile_control("private-control-fixture"), {"accepted": ready})
             self.assertEqual(opener.open.call_count, 2 if ready else 1)
+            for call in opener.open.call_args_list:
+                self.assertEqual(call.args[0].get_header("User-agent"), HTTP_USER_AGENT)
             self.assertEqual(
                 opener.open.call_args_list[0].args[0].full_url,
                 "https://auto3d-5av.pages.dev/internal/conversion-control/health",
