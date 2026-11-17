@@ -104,7 +104,7 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
         endpoint + "/connection",
         headers={"Modal-Key": runtime["tokenId"], "Modal-Secret": runtime["tokenSecret"]},
     )
-    for attempt in range(3):
+    for attempt in range(8):
         try:
             with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
                 data = response.read(16385)
@@ -135,6 +135,10 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
             ):
                 mismatches.append("conversionReady")
             if mismatches:
+                if mismatches == ["conversionReady"] and attempt < 7:
+                    # Deployment routing may briefly serve the previous disabled revision.
+                    time.sleep(2)
+                    continue
                 raise BridgeError(
                     "Gateway identity mismatch in: "
                     + ", ".join(mismatches)
@@ -147,7 +151,7 @@ def proxy_probe(endpoint, runtime, settings, require_ready=False):
             status = error.code if isinstance(error, urllib.error.HTTPError) else None
             if isinstance(error, urllib.error.HTTPError):
                 error.close()
-            if attempt < 2 and (
+            if attempt < 7 and (
                 isinstance(error, (TimeoutError, urllib.error.URLError))
                 or status in (429, 502, 503, 504)
             ):
