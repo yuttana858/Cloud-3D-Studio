@@ -1,4 +1,8 @@
-# Private owned conversion jobs — 0.4.0
+# Private owned conversion jobs — 0.4.1
+
+Version 0.4.1 removes exactly zero-area pole facets from otherwise validated CAD tessellation while retaining positive mesh coverage for every required CAD face and all existing integrity checks. The native proof includes box/sphere/pointed-cone solids; [#20](https://github.com/yuttana858/Cloud-3D-Studio/pull/20) and [operations evidence](operations.md) record the repair and successful independent live pipeline verification. Existing failed jobs are not silently retried or changed. Re-submit a failed source explicitly to use the repaired worker; source retention, two-attempt limits and owned capabilities are unchanged.
+
+The verification-only **Verify existing private CAD pipeline** workflow checks the current gateway and full public user-API conversion/diagnostic path without rebuilding or redeploying Modal. It emits fixed operation labels on failure and retains the existing temporary-account/job cleanup. Running its CLI without `--run` reads no credentials and creates nothing.
 
 ## Server diagnostics
 
