@@ -300,6 +300,7 @@ class ProvisionProofTests(unittest.TestCase):
             "version": provision_modal.VERSION,
             "step_reimport_passed": True,
             "mesh_reimport_passed": True,
+            "curved_mesh_reimports_passed": True,
             "artifacts": ["step", "glb", "stl"],
             "dimensions_mm": [40, 30, 20],
         }
@@ -309,6 +310,7 @@ class ProvisionProofTests(unittest.TestCase):
             {"dimensions_mm": [0.04, 0.03, 0.02]},
             {"version": "old"},
             {"mesh_reimport_passed": False},
+            {"curved_mesh_reimports_passed": False},
             {"dimensions_mm": [float("nan"), 30, 20]},
         ):
             with self.assertRaises(provision_modal.BridgeError):
@@ -346,6 +348,7 @@ class RuntimeProvisionTests(unittest.IsolatedAsyncioTestCase):
             "version": provision_modal.VERSION,
             "step_reimport_passed": True,
             "mesh_reimport_passed": True,
+            "curved_mesh_reimports_passed": True,
             "artifacts": ["step", "glb", "stl"],
             "dimensions_mm": [40, 30, 20],
         }

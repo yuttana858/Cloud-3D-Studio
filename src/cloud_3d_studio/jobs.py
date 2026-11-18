@@ -283,13 +283,23 @@ def self_test() -> dict:
             for a, b in zip(manifest["cad"]["dimensions_mm"], (40, 30, 20), strict=True)
         ):
             raise ConversionError("self_test_failed", "Synthetic box dimensions changed.")
+        if (
+            manifest["cad"]["topology"]["solids"] != 3
+            or len(manifest["mesh_validation"]["bodies"]) != 3
+            or not all(
+                body["expected_solid"] and body["watertight"] and body["winding_consistent"]
+                for body in manifest["mesh_validation"]["bodies"]
+            )
+        ):
+            raise ConversionError("self_test_failed", "Synthetic curved-body proof is incomplete.")
         return {
             "ok": True,
-            "fixture": "synthetic STEP box",
+            "fixture": "synthetic STEP box, sphere and pointed cone assembly",
             "version": manifest["producer_version"],
             "dimensions_mm": manifest["cad"]["dimensions_mm"],
             "topology": manifest["cad"]["topology"],
             "step_reimport_passed": manifest["cad_validation"]["passed"],
             "mesh_reimport_passed": manifest["mesh_validation"]["passed"],
+            "curved_mesh_reimports_passed": True,
             "artifacts": list(manifest["artifacts"]),
         }

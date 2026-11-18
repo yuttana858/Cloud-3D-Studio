@@ -32,12 +32,27 @@ def execute(request, directory):
 
     limits = Limits(**request["limits"])
     if request["command"] == "self_test":
-        from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
+        from OCP.BRep import BRep_Builder
+        from OCP.BRepPrimAPI import (
+            BRepPrimAPI_MakeBox,
+            BRepPrimAPI_MakeCone,
+            BRepPrimAPI_MakeSphere,
+        )
+        from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt
+        from OCP.TopoDS import TopoDS_Compound
 
         from .native import write_step
 
         source = directory / "input.step"
-        write_step(BRepPrimAPI_MakeBox(40, 30, 20).Shape(), source)
+        builder, assembly = BRep_Builder(), TopoDS_Compound()
+        builder.MakeCompound(assembly)
+        for shape in (
+            BRepPrimAPI_MakeBox(40, 30, 20).Shape(),
+            BRepPrimAPI_MakeSphere(gp_Pnt(10, 10, 10), 5).Shape(),
+            BRepPrimAPI_MakeCone(gp_Ax2(gp_Pnt(25, 15, 3), gp_Dir(0, 0, 1)), 4, 0, 8).Shape(),
+        ):
+            builder.Add(assembly, shape)
+        write_step(assembly, source)
     else:
         source = Path(request["source"])
     kind = validate_options(source.suffix, request["source_unit"], request["quality"])
