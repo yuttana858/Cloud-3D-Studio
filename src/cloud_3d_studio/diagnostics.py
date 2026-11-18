@@ -119,7 +119,7 @@ def diagnostic_report(error=None, progress=None):
     }
 
 
-def diagnose(request, directory):
+def diagnose(request, directory, *, appearance_out=None):
     from pathlib import Path
 
     from .contracts import validate_options
@@ -138,6 +138,7 @@ def diagnose(request, directory):
             digest(source),
             directory / "diagnostic.step",
             progress=progress,
+            appearance_out=appearance_out,
         )
         return diagnostic_report(progress=progress.latest)
     except Exception as error:

@@ -244,7 +244,13 @@ def convert_file(
 
 
 def diagnose_file(
-    source, source_unit=None, quality="standard", *, cancel_check=None, on_progress=None
+    source,
+    source_unit=None,
+    quality="standard",
+    *,
+    cancel_check=None,
+    on_progress=None,
+    include_appearance=False,
 ):
     """Inspect on the private server, returning only a bounded geometry-free report."""
     limits = Limits(timeout_seconds=240, output_bytes=64 * 1024 * 1024)
@@ -254,6 +260,7 @@ def diagnose_file(
         frozen = frozen_input(source, directory, limits.input_bytes)
         request = {
             "command": "diagnose",
+            "include_appearance": include_appearance,
             "source": str(frozen),
             "source_unit": source_unit,
             "quality": quality,
@@ -271,7 +278,14 @@ def diagnose_file(
         report = result.get("report")
         if not result["ok"] or not isinstance(report, dict) or len(json.dumps(report)) > 8192:
             raise ConversionError("worker_failed", "The server diagnostic could not complete.")
-        return report
+        return (
+            {
+                "report": report,
+                **({"appearance": result["appearance"]} if "appearance" in result else {}),
+            }
+            if include_appearance
+            else report
+        )
 
 
 def self_test() -> dict:
@@ -292,6 +306,13 @@ def self_test() -> dict:
             )
         ):
             raise ConversionError("self_test_failed", "Synthetic curved-body proof is incomplete.")
+        appearance = manifest["appearance"]
+        if appearance["validation"] != "passed" or any(
+            appearance[k][fmt] != "preserved"
+            for k in ("colors", "transparency")
+            for fmt in ("glb", "step")
+        ):
+            raise ConversionError("self_test_failed", "Synthetic appearance proof is incomplete.")
         return {
             "ok": True,
             "fixture": "synthetic STEP box, sphere and pointed cone assembly",
@@ -301,5 +322,6 @@ def self_test() -> dict:
             "step_reimport_passed": manifest["cad_validation"]["passed"],
             "mesh_reimport_passed": manifest["mesh_validation"]["passed"],
             "curved_mesh_reimports_passed": True,
+            "appearance_reimports_passed": True,
             "artifacts": list(manifest["artifacts"]),
         }

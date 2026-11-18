@@ -27,6 +27,35 @@ class DiagnosticTransport(FakeTransport):
 
 
 class DiagnosticTests(unittest.TestCase):
+    def test_appearance_protocol_returns_inventory_only_to_private_callback(self):
+        transport = DiagnosticTransport(JobReference.parse(reference()))
+        json_call = transport.json
+
+        def claimed(operation, payload):
+            result = json_call(operation, payload)
+            if operation == "claim":
+                result["appearanceProtocol"] = 1
+            return result
+
+        transport.json = claimed
+        report = diagnostic_report(
+            ConversionError("invalid_geometry", "private"), {"phase": "build_geometry"}
+        )
+        calls = []
+
+        def diagnose(*args, **kwargs):
+            calls.append(kwargs.get("include_appearance"))
+            return {"report": report}
+
+        result = run_owned_job(
+            transport.reference, transport_factory=lambda _: transport, diagnoser=diagnose
+        )
+        self.assertEqual(calls, [True])
+        self.assertNotIn("report", result)
+        self.assertEqual(
+            [body for op, body in transport.calls if op == "complete"], [{"report": report}]
+        )
+
     def test_report_keeps_only_public_root_category_code_locations_and_checks(self):
         root_type = type("Standard_ConstructionError", (RuntimeError,), {})
         try:

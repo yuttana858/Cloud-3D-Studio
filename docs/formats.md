@@ -6,7 +6,7 @@ This registry concerns the **Cloud 3D Studio conversion backend**. Auto3D alread
 | --- | --- | --- | --- |
 | v0.1 foundation | Input | Parasolid X_T / X_B | Explicit coordinate unit; pinned reader supports a subset of schemas/surfaces; strict complete conversion. Supplier acceptance pending. |
 | v0.1 foundation | Input/output | STEP / STP | CAD exchange with declared units; output AP242 millimeters. Geometry/topology, not parametric feature history. Input reader/root/shape and output round-trip checks required. |
-| v0.1 foundation | Output | GLB | Default Auto3D display artifact, standard meters, embedded buffers, separate positioned body nodes. No promise of original appearance/name fidelity. |
+| v0.1 foundation | Output | GLB | Default Auto3D display artifact, standard meters, embedded buffers, separate positioned body nodes. STEP body/face colors, occurrence overrides and transparency retained in v0.5.0; no promise of names or original bitmap/UV assets. |
 | v0.1 foundation | Output | Binary STL | Neutral mesh, coordinates in mm; unit/provenance manifest required. No standard units, CAD surfaces or useful assembly hierarchy in STL. |
 | Next CAD adapters | Input/output | IGES / IGS | Legacy surface-CAD interchange; inspect declared units, trimmed surfaces and sewing behavior with samples. |
 | Next CAD adapters | Internal exchange | OCCT BREP | Useful validated-kernel cache/interchange; explicit units and pinned OCCT version. Not a universal format. |

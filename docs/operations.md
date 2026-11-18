@@ -1,5 +1,9 @@
 # Operations and validation evidence
 
+## Appearance preservation — 0.5.0 candidate
+
+See [appearance.md](appearance.md). Adds STEPCAF body/face/occurrence color and alpha preservation with material-group GLB validation, bounded embedded-image groundwork and a separate negotiated source inventory. App companion is Auto3D 0.87.0; no new Modal app, GPU, database column or retention policy. Local candidate validation: **92 tests passed** in 99.424 seconds; Ruff lint/format, offline lock and diff checks passed. Includes effective face/occurrence inheritance in nested rotated assemblies, colored STEP/GLB alpha, embedded PNG pixels and UV checks, missing-UV/path rejection, source-only inventory and callback privacy. Hosted deployment evidence follows the live verification.
+
 ## Pole-facet mesh repair — 0.4.1 live
 
 A subsequent explicit submission of the same private STEP is now **ready on 0.4.1**. Server metadata confirms the source checksum matches the earlier failed STEP, independent CAD/STEP and mesh reimport checks passed, and STEP, GLB and STL artifacts are available. This establishes geometry-conversion acceptance for that source; the old failed job remains unchanged. No customer CAD was downloaded into the agent workspace. The source's raw checksum, private names, identifiers, dimensions and file contents are omitted from this record.

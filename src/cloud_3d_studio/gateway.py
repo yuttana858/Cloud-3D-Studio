@@ -18,6 +18,7 @@ def connection_application(settings: Mapping[str, str], dispatch=None, cancel=No
         "conversionReady": settings.get("CLOUD3D_NATIVE_VERIFIED") == "1" and dispatch is not None,
         "jobApiVersion": 1,
         "diagnosticApiVersion": 1,
+        "appearanceApiVersion": 1,
     }
 
     async def application(scope, receive, send):

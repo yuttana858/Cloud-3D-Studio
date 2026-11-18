@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import secrets
+import struct
 import sys
 import time
 import urllib.error
@@ -272,6 +273,33 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
                 or record["units"] != units
             ):
                 raise CanaryError("The live artifact hash, length or units failed.")
+        appearance = capabilities.get("appearanceProtocol") == 1
+        if appearance:
+            report = summary.get("appearance")
+            if (
+                report != manifest.get("appearance")
+                or report.get("validation") != "passed"
+                or any(
+                    report[k][fmt] != "preserved"
+                    for k in ("colors", "transparency")
+                    for fmt in ("glb", "step")
+                )
+            ):
+                raise CanaryError("The live appearance report failed.")
+            data = files["glb"]
+            json_size = struct.unpack_from("<I", data, 12)[0]
+            tree = json.loads(data[20 : 20 + json_size])
+            values = [
+                m.get("pbrMetallicRoughness", {}).get("baseColorFactor", [])
+                for m in tree.get("materials", [])
+            ]
+            for expected in ((0.2, 0.05, 0.4, 1), (0.05, 0.3, 0.7, 0.5)):
+                if not any(
+                    len(v) == 4 and all(abs(a - b) < 1e-7 for a, b in zip(v, expected))
+                    for v in values
+                ):
+                    raise CanaryError("The live GLB lost a source face color or alpha.")
+            print("Live appearance: source body/face colors and transparency passed.")
         diagnostics = capabilities.get("diagnosticProtocol") == 1
         if diagnostics:
             run_diagnostic_canary(client, primary, outsider, sleep=sleep, monotonic=monotonic)
@@ -279,6 +307,7 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
             "passed": True,
             "progressTelemetry": capabilities.get("progressProtocol") == 1,
             "serverDiagnostics": diagnostics,
+            "appearancePreservation": appearance,
             "dimensionsMm": [40, 30, 20],
             "twoAccountIsolation": True,
             "artifacts": ["step", "glb", "stl", "manifest"],
