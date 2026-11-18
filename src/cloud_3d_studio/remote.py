@@ -261,18 +261,20 @@ def run_owned_job(
             if cancelled.is_set():
                 raise ConversionError("cancelled", "The job is no longer active.")
             if purpose == "diagnostic":
+                appearance_protocol = claim.get("appearanceProtocol") == 1
                 report = diagnoser(
                     input_path,
                     source["unit"],
                     claim["quality"],
                     cancel_check=cancelled.is_set,
                     on_progress=update,
+                    **({"include_appearance": True} if appearance_protocol else {}),
                 )
                 stopped.set()
                 monitor.join(timeout=46)
                 if cancelled.is_set():
                     raise ConversionError("cancelled", "The job is no longer active.")
-                transport.json("complete", {"report": report})
+                transport.json("complete", report if appearance_protocol else {"report": report})
                 return {"accepted": True, "completed": True}
             output = root / "result"
             converter(

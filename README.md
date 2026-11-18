@@ -2,7 +2,7 @@
 
 Shared compute services for Auto3D. The first implementation is a CPU-only CAD conversion foundation: supported Parasolid and STEP input to validated STEP, GLB and STL plus a unit/provenance manifest. Blender rendering remains a later, separate worker.
 
-Version: **0.4.1**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
+Version: **0.5.0**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
 
 ## Local development
 
@@ -15,6 +15,8 @@ uv run python -m unittest discover -s tests -v
 uv run cloud3d capabilities
 uv run cloud3d self-test
 ```
+
+STEP body/face colors, occurrence overrides and transparency are retained in GLB and colored STEP. The strict appearance report distinguishes those from bitmap textures the CAD reader does not expose. STL remains geometry-only. See [appearance preservation](docs/appearance.md).
 
 Conversion writes a new output directory and preserves the input:
 

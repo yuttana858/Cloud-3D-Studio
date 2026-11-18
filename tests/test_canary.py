@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import struct
 import unittest
 import urllib.error
 from contextlib import redirect_stdout
@@ -89,6 +90,49 @@ class FakeCanary:
 
 
 class CanaryTests(unittest.TestCase):
+    def test_live_appearance_canary_requires_actual_glb_color_and_alpha(self):
+        report = {
+            "validation": "passed",
+            **{
+                key: {fmt: "preserved" for fmt in ("step", "glb")}
+                for key in ("colors", "transparency")
+            },
+        }
+        for corrupt in (False, True):
+            fake = FakeCanary()
+            tree = {
+                "materials": [
+                    {"pbrMetallicRoughness": {"baseColorFactor": v}}
+                    for v in ((0.2, 0.05, 0.4, 1), (0.05, 0.3, 0.7, 1 if corrupt else 0.5))
+                ]
+            }
+            content = json.dumps(tree).encode()
+            fake.files["glb"] = (
+                struct.pack("<5I", 0x46546C67, 2, len(content) + 20, len(content), 0x4E4F534A)
+                + content
+            )
+            api = fake.api
+
+            def wrapped(account, path="", method="GET", body=None, binary=False):
+                result = api(account, path, method, body, binary)
+                if path == "/capabilities":
+                    result["appearanceProtocol"] = 1
+                elif path.endswith("/artifacts/manifest"):
+                    value = json.loads(result)
+                    value["appearance"] = report
+                    result = json.dumps(value).encode()
+                elif isinstance(result, dict) and result.get("job", {}).get("summary"):
+                    result["job"]["summary"]["appearance"] = report
+                return result
+
+            fake.api = wrapped
+            if corrupt:
+                with self.assertRaises(canary_modal.CanaryError):
+                    canary_modal.run_canary(fake)
+            else:
+                self.assertTrue(canary_modal.run_canary(fake)["appearancePreservation"])
+            self.assertEqual(len(fake.deleted), 2)
+
     def test_diagnostic_canary_reuses_upload_and_always_removes_the_test_job(self):
         from cloud_3d_studio.contracts import ConversionError
         from cloud_3d_studio.diagnostics import diagnostic_report

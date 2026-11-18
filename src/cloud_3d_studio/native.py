@@ -129,10 +129,14 @@ def load_source(
     output: Path,
     *,
     progress=lambda *args: None,
+    appearance_out=None,
 ):
+    from .appearance import Appearance, read_step_document, write_step_document
+
     progress("read_source")
+    appearance = Appearance(kind)
     if kind == "step":
-        shape, units = read_step(path)
+        shape, units, appearance = read_step_document(path)
         source = {"declared_units": units, "complete": True}
     elif kind == "parasolid":
         from parasolid_kit import ParseLimits, read_brep
@@ -174,10 +178,16 @@ def load_source(
     progress("validate_geometry")
     original = shape_metrics(shape)
     progress("write_step")
-    write_step(shape, output)
+    if appearance.document is not None:
+        write_step_document(appearance, output)
+    else:
+        write_step(shape, output)
+        appearance.step_verified = True
     progress("validate_step")
     reimport = cold_check(output)
     compare_cad(original, reimport["metrics"])
+    if appearance_out is not None:
+        appearance_out["value"] = appearance
     return shape, source, original, {"passed": True, "process_isolated": True, **reimport}
 
 

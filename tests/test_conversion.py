@@ -331,6 +331,7 @@ class NativeConversionTests(unittest.TestCase):
         self.assertEqual(result["artifacts"], ["step", "glb", "stl"])
         self.assertEqual(result["topology"]["solids"], 3)
         self.assertTrue(result["curved_mesh_reimports_passed"])
+        self.assertTrue(result["appearance_reimports_passed"])
 
 
 if __name__ == "__main__":

@@ -26,7 +26,15 @@ def body_shapes(shape):
             explorer.Next()
 
 
-def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None, face_count=None):
+def triangulate(
+    shape,
+    deflection: float,
+    limits,
+    *,
+    progress=lambda *args: None,
+    face_count=None,
+    appearance=None,
+):
     from OCP.BRep import BRep_Tool
     from OCP.BRepMesh import BRepMesh_IncrementalMesh
     from OCP.BRepTools import BRepTools
@@ -40,6 +48,8 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
     mesher = BRepMesh_IncrementalMesh(shape, deflection, False, 0.2, True)
     if not mesher.IsDone():
         raise ConversionError("meshing_failed", "OCCT meshing did not finish.")
+    if appearance is not None:
+        appearance.prepare_faces()
     meshes, evidence, total = [], [], 0
     processed = 0
     progress("build_mesh", 0, face_count, "faces") if face_count else progress("build_mesh")
@@ -47,6 +57,8 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
         if len(meshes) >= limits.bodies:
             raise ConversionError("body_limit", "CAD body count exceeds the job limit.")
         vertices, faces, face_ranges = [], [], []
+        styles, assignments = [], []
+        palette = {}
         explorer = TopExp_Explorer(body, TopAbs_FACE)
         while explorer.More():
             face = TopoDS.Face_s(explorer.Current())
@@ -67,6 +79,12 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
                     corners[1], corners[2] = corners[2], corners[1]
                 faces.append(corners)
             face_ranges.append((len(faces) - triangles.NbTriangles(), len(faces)))
+            if appearance is not None:
+                style = appearance.for_face(face)
+                if style.key not in palette:
+                    palette[style.key] = len(styles)
+                    styles.append(style)
+                assignments.extend([palette[style.key]] * triangles.NbTriangles())
             explorer.Next()
             processed += 1
             if face_count:
@@ -90,6 +108,9 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
         if removed:
             mesh.update_faces(positive)
             mesh.remove_unreferenced_vertices()
+        if appearance is not None:
+            mesh._cad_styles = styles
+            mesh._cad_face_materials = np.asarray(assignments)[positive]
         # Validate a welded copy; retain separate CAD face vertices for sharp-edge shading.
         checked = mesh.copy()
         checked.merge_vertices(digits_vertex=10)
@@ -136,34 +157,39 @@ def check_mesh(expected: dict, actual: dict, deflection: float, all_solid: bool)
 
 
 def write_meshes(
-    shape, destination: Path, cad: dict, deflection: float, limits, *, progress=lambda *args: None
+    shape,
+    destination: Path,
+    cad: dict,
+    deflection: float,
+    limits,
+    *,
+    progress=lambda *args: None,
+    appearance=None,
 ):
     meshes, bodies = triangulate(
-        shape, deflection, limits, progress=progress, face_count=cad["topology"]["faces"]
+        shape,
+        deflection,
+        limits,
+        progress=progress,
+        face_count=cad["topology"]["faces"],
+        appearance=appearance,
     )
     progress("validate_mesh")
     combined = trimesh.util.concatenate(meshes)
     solid = all(body["expected_solid"] for body in bodies)
     check_mesh(cad, mesh_metrics(combined), deflection, solid)
-    scene = trimesh.Scene()
-    for index, mesh in enumerate(meshes):
-        center = mesh.bounds.mean(axis=0)
-        local = mesh.copy()
-        local.vertices = (local.vertices - center) * 0.001
-        transform = np.eye(4)
-        transform[:3, 3] = center * 0.001
-        scene.add_geometry(
-            local, geom_name=f"body-{index + 1}", node_name=f"body-{index + 1}", transform=transform
-        )
+    from .glb import export_glb, validate_glb
+
     glb, stl = destination / "model.glb", destination / "model.stl"
-    glb.write_bytes(scene.export(file_type="glb", include_normals=True))
+    expected = export_glb(meshes, glb)
     stl.write_bytes(combined.export(file_type="stl"))
     for file in (glb, stl):
         if file.stat().st_size > limits.output_bytes:
             raise ConversionError("output_limit", "Mesh output exceeds the job byte limit.")
     reopened_glb = trimesh.load(glb, force="scene", process=False)
-    if len(reopened_glb.geometry) != len(meshes):
-        raise ConversionError("mesh_validation_failed", "GLB lost CAD bodies.")
+    validate_glb(glb, reopened_glb, meshes, expected, deflection, bodies)
+    if appearance is not None:
+        appearance.glb_verified = True
     glb_mm = reopened_glb.to_mesh()
     glb_mm.apply_scale(1000.0)
     reopened_stl = trimesh.load(stl, force="mesh", process=False)

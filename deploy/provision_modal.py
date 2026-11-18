@@ -68,6 +68,7 @@ def validate_smoke(result):
             or result["step_reimport_passed"] is not True
             or result["mesh_reimport_passed"] is not True
             or result["curved_mesh_reimports_passed"] is not True
+            or result["appearance_reimports_passed"] is not True
         ):
             raise ValueError()
         if set(result["artifacts"]) != {"step", "glb", "stl"} or any(
