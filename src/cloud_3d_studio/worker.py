@@ -140,6 +140,53 @@ def execute(request, directory):
     return {"ok": True, "manifest": manifest}
 
 
+def execute_thicken(request, directory):
+    from .thicken import SIDES, thicken_step
+
+    source = Path(request["source"])
+    if source.suffix.lower().lstrip(".") not in ("step", "stp"):
+        raise ConversionError("unsupported_format", "Thickening reads STEP surfaces only.")
+    thickness, side = request.get("thickness_mm"), request.get("side")
+    if isinstance(thickness, bool) or not isinstance(thickness, (int, float)) or side not in SIDES:
+        raise ConversionError("thicken_invalid_thickness", "Thickness and side are required.")
+    source_hash = digest(source)
+    output = directory / "artifacts"
+    output.mkdir()
+    progress = ProgressFile(directory)
+    progress("read_source")
+    evidence = thicken_step(source, output / "model.step", float(thickness), side)
+    path = output / "model.step"
+    limits = Limits(**request["limits"])
+    if not path.is_file() or not 0 < path.stat().st_size <= limits.output_bytes:
+        raise ConversionError("output_limit", "The output is empty or exceeds the job byte limit.")
+    manifest = {
+        "schema_version": 1,
+        "producer": "cloud-3d-studio",
+        "producer_version": __version__,
+        "operation": "thicken",
+        "status": "validated",
+        "source": {
+            "format": "step",
+            "sha256": source_hash,
+            "declared_units": evidence["source_units"],
+        },
+        "artifacts": {
+            "step": {
+                "filename": path.name,
+                "sha256": digest(path),
+                "bytes": path.stat().st_size,
+                "units": "mm",
+            }
+        },
+        "thicken": evidence["thicken"],
+        "cad": evidence["cad"],
+        "cad_validation": evidence["cad_validation"],
+        "dependencies": {name: version(name) for name in ("cadquery-ocp-novtk",)},
+    }
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
+    return {"ok": True, "manifest": manifest}
+
+
 def main():
     request_path = Path(sys.argv[1])
     directory = request_path.parent
@@ -156,6 +203,8 @@ def main():
             }
             if request.get("include_appearance") is True and "value" in appearances:
                 result["appearance"] = appearances["value"].report(source_only=True)
+        elif request.get("command") == "thicken":
+            result = execute_thicken(request, directory)
         else:
             result = execute(request, directory)
     except Exception as error:
