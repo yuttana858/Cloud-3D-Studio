@@ -72,9 +72,15 @@ def main(argv=None):
         if not controller_ready(control_key("production", settings)):
             raise CanaryError("Controller is not ready.")
         result = run_canary(TracedClient())
-        if not result["serverDiagnostics"] or not result["progressTelemetry"]:
+        if (
+            not result["serverDiagnostics"]
+            or not result["progressTelemetry"]
+            or not result.get("appearancePreservation")
+        ):
             raise CanaryError("Required protocol was not verified.")
-        print("Live pipeline passed: calibration, hashes/units, progress and server diagnostics.")
+        print(
+            "Live pipeline passed: calibration, hashes/units, progress, server diagnostics and STEP color/alpha."
+        )
         print("Temporary test identities and files were removed.")
         return 0
     except Exception:

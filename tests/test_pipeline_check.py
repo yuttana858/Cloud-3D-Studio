@@ -38,7 +38,11 @@ class PipelineCheckTests(unittest.TestCase):
             patch.object(
                 check,
                 "run_canary",
-                return_value={"serverDiagnostics": True, "progressTelemetry": True},
+                return_value={
+                    "serverDiagnostics": True,
+                    "progressTelemetry": True,
+                    "appearancePreservation": True,
+                },
             ) as canary,
             patch.object(check.sys, "stdout", io.StringIO()) as output,
         ):
@@ -48,6 +52,9 @@ class PipelineCheckTests(unittest.TestCase):
             )
             canary.assert_called_once()
             self.assertNotIn("private-key", output.getvalue())
+            canary.return_value["appearancePreservation"] = False
+            with patch.object(check.sys, "stderr", io.StringIO()):
+                self.assertEqual(check.main(["--run"]), 1)
 
     def test_missing_readiness_is_failure_and_omits_private_error(self):
         with (
