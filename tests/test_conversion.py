@@ -15,12 +15,18 @@ import trimesh
 from OCP.BRep import BRep_Builder
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut
 from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
-from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+from OCP.BRepPrimAPI import (
+    BRepPrimAPI_MakeBox,
+    BRepPrimAPI_MakeCone,
+    BRepPrimAPI_MakeCylinder,
+    BRepPrimAPI_MakeSphere,
+)
 from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 from OCP.TopoDS import TopoDS_Compound
 
 from cloud_3d_studio.contracts import ConversionError, Limits, capabilities, validate_options
 from cloud_3d_studio.jobs import convert_file, digest, frozen_input, run_process, self_test
+from cloud_3d_studio.meshes import triangulate
 from cloud_3d_studio.native import load_source, shape_metrics, write_step
 
 
@@ -106,6 +112,27 @@ class ContractsTests(unittest.TestCase):
             self.assertFalse(output.exists())
 
 
+class MeshIntegrityTests(unittest.TestCase):
+    def test_cleanup_does_not_hide_a_missing_face_or_nonfinite_coordinates(self):
+        constructor = trimesh.Trimesh
+        for corruption in ("missing_face", "nonfinite"):
+            with self.subTest(corruption=corruption):
+
+                def corrupt_mesh(*, vertices, faces, process):
+                    points, triangles = np.array(vertices), np.array(faces)
+                    if corruption == "nonfinite":
+                        points[0, 0] = np.nan
+                    else:
+                        # Both triangles belonging to one required CAD face collapse.
+                        triangles[:2] = triangles[:2, :1]
+                    return constructor(vertices=points, faces=triangles, process=process)
+
+                with patch("cloud_3d_studio.meshes.trimesh.Trimesh", side_effect=corrupt_mesh):
+                    with self.assertRaises(ConversionError) as error:
+                        triangulate(BRepPrimAPI_MakeBox(40, 30, 20).Shape(), 0.1, Limits())
+                self.assertEqual(error.exception.code, "mesh_validation_failed")
+
+
 class NativeConversionTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -156,6 +183,28 @@ class NativeConversionTests(unittest.TestCase):
         manifest, _ = self.convert_shape(BRepPrimAPI_MakeCylinder(10, 20).Shape())
         self.assertAlmostEqual(manifest["cad"]["volume_mm3"], math.pi * 100 * 20, places=4)
         self.assertTrue(manifest["mesh_validation"]["bodies"][0]["watertight"])
+
+    def test_sphere_roundtrips_without_pole_degeneracies(self):
+        manifest, output = self.convert_shape(BRepPrimAPI_MakeSphere(10).Shape())
+        self.assertAlmostEqual(manifest["cad"]["volume_mm3"], 4 * math.pi * 1000 / 3, places=4)
+        self.assertGreater(
+            manifest["mesh_validation"]["bodies"][0]["zero_area_triangles_removed"], 0
+        )
+        mesh = trimesh.load(output / "model.stl", force="mesh")
+        self.assertTrue(mesh.is_watertight)
+        self.assertTrue(mesh.is_winding_consistent)
+        self.assertTrue((mesh.area_faces > 0).all())
+
+    def test_pointed_cone_roundtrips_without_pole_degeneracies(self):
+        manifest, output = self.convert_shape(BRepPrimAPI_MakeCone(10, 0, 20).Shape())
+        self.assertAlmostEqual(manifest["cad"]["volume_mm3"], math.pi * 100 * 20 / 3, places=4)
+        self.assertGreater(
+            manifest["mesh_validation"]["bodies"][0]["zero_area_triangles_removed"], 0
+        )
+        mesh = trimesh.load(output / "model.stl", force="mesh")
+        self.assertTrue(mesh.is_watertight)
+        self.assertTrue(mesh.is_winding_consistent)
+        self.assertTrue((mesh.area_faces > 0).all())
 
     def test_fine_quality_increases_curve_sampling_and_keeps_dimensions(self):
         source = self.root / "curved.step"
@@ -280,6 +329,8 @@ class NativeConversionTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["dimensions_mm"], [40, 30, 20])
         self.assertEqual(result["artifacts"], ["step", "glb", "stl"])
+        self.assertEqual(result["topology"]["solids"], 3)
+        self.assertTrue(result["curved_mesh_reimports_passed"])
 
 
 if __name__ == "__main__":

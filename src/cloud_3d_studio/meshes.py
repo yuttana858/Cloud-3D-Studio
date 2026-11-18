@@ -46,7 +46,7 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
     for body, solid in body_shapes(shape):
         if len(meshes) >= limits.bodies:
             raise ConversionError("body_limit", "CAD body count exceeds the job limit.")
-        vertices, faces = [], []
+        vertices, faces, face_ranges = [], [], []
         explorer = TopExp_Explorer(body, TopAbs_FACE)
         while explorer.More():
             face = TopoDS.Face_s(explorer.Current())
@@ -66,22 +66,33 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
                 if face.Orientation() == TopAbs_REVERSED:
                     corners[1], corners[2] = corners[2], corners[1]
                 faces.append(corners)
+            face_ranges.append((len(faces) - triangles.NbTriangles(), len(faces)))
             explorer.Next()
             processed += 1
             if face_count:
                 progress("build_mesh", min(processed, face_count), face_count, "faces")
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
-        # Validate a welded copy; retain separate CAD face vertices for sharp-edge shading.
-        checked = mesh.copy()
-        checked.merge_vertices(digits_vertex=10)
+        areas = mesh.area_faces
         if (
             not len(mesh.faces)
             or not np.isfinite(mesh.vertices).all()
-            or (mesh.area_faces <= 0).any()
+            or not np.isfinite(areas).all()
         ):
             raise ConversionError(
                 "mesh_validation_failed", "Mesh is empty, nonfinite or degenerate."
             )
+        # OCCT can emit zero-area facets at cone/sphere poles. Remove only those
+        # facets, without a tolerance that could erase small valid features.
+        positive = areas > 0
+        if not all(positive[start:end].any() for start, end in face_ranges):
+            raise ConversionError("mesh_validation_failed", "A required CAD face has no mesh area.")
+        removed = int(np.count_nonzero(~positive))
+        if removed:
+            mesh.update_faces(positive)
+            mesh.remove_unreferenced_vertices()
+        # Validate a welded copy; retain separate CAD face vertices for sharp-edge shading.
+        checked = mesh.copy()
+        checked.merge_vertices(digits_vertex=10)
         if not checked.is_winding_consistent or (solid and not checked.is_watertight):
             raise ConversionError(
                 "mesh_validation_failed", "Solid mesh is open or has inconsistent winding."
@@ -91,6 +102,7 @@ def triangulate(shape, deflection: float, limits, *, progress=lambda *args: None
                 "body": len(meshes) + 1,
                 "expected_solid": solid,
                 "triangles": len(mesh.faces),
+                "zero_area_triangles_removed": removed,
                 "watertight": bool(checked.is_watertight),
                 "winding_consistent": bool(checked.is_winding_consistent),
             }

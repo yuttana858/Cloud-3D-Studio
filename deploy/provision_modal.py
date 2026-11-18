@@ -67,6 +67,7 @@ def validate_smoke(result):
             or result["version"] != VERSION
             or result["step_reimport_passed"] is not True
             or result["mesh_reimport_passed"] is not True
+            or result["curved_mesh_reimports_passed"] is not True
         ):
             raise ValueError()
         if set(result["artifacts"]) != {"step", "glb", "stl"} or any(
@@ -238,7 +239,7 @@ async def prove_and_provision(profile, settings):
         result = await smoke.remote()
         validate_smoke(result)
         print(
-            "Deployed native proof passed: 40 x 30 x 20 mm; independent STEP/GLB/STL reimports passed."
+            "Deployed native proof passed: 40 x 30 x 20 mm box/sphere/cone assembly; independent STEP/GLB/STL reimports passed."
         )
         gateway = _Function.from_name(
             settings["app"], "cad_gateway", environment_name=settings["environment"], client=client
