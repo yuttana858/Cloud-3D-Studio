@@ -108,6 +108,87 @@ class CanaryClient:
         return data if binary else json.loads(data)
 
 
+def run_diagnostic_canary(client, primary, outsider, *, sleep=time.sleep, monotonic=time.monotonic):
+    """An intentionally invalid public fixture, never an existing customer job."""
+    source = b"Public synthetic diagnostic fixture: this is not a Parasolid document."
+    checksum = hashlib.sha256(source).hexdigest()
+    result = client.api(
+        primary,
+        method="POST",
+        body={
+            "requestKey": str(uuid4()),
+            "sourceName": "public-canary-diagnostic.x_t",
+            "extension": "x_t",
+            "sourceBytes": len(source),
+            "sourceSha256": checksum,
+            "sourceUnit": "mm",
+            "quality": "standard",
+            "origin": {"windowId": str(uuid4()), "tabId": str(uuid4()), "revision": 0},
+        },
+    )
+    job_id = str(UUID(result["job"]["id"]))
+
+    def denied():
+        try:
+            client.api(outsider, "/" + job_id)
+        except CanaryError as error:
+            if "404" in str(error):
+                return
+        raise CanaryError("Diagnostic report was not isolated to its owner.")
+
+    def wait_report():
+        deadline = monotonic() + 240
+        while True:
+            job = client.api(primary, "/" + job_id)["job"]
+            if job["state"] == "failed" and job.get("purpose", "conversion") == "conversion":
+                report = job.get("diagnostics", {}).get("report", {})
+                if (
+                    report.get("outcome") != "error_detected"
+                    or report.get("failureCode") != "invalid_parasolid"
+                    or report.get("checks", {}).get("sourceRead") != "failed"
+                    or job.get("artifacts")
+                    or job.get("errorCode") != "invalid_parasolid"
+                    or job.get("source", {}).get("sha256") != checksum
+                ):
+                    raise CanaryError(
+                        "The diagnostic report did not preserve failed-source evidence."
+                    )
+                if set(report) != {
+                    "schemaVersion",
+                    "versions",
+                    "outcome",
+                    "phase",
+                    "failureCode",
+                    "readerCode",
+                    "exception",
+                    "frames",
+                    "checks",
+                }:
+                    raise CanaryError("Diagnostic report contained unexpected fields.")
+                return job
+            if job["state"] in ("ready", "cancelled", "expired") or monotonic() > deadline:
+                raise CanaryError("The diagnostic pass did not complete within its bound.")
+            sleep(2)
+
+    try:
+        denied()
+        client.api(primary, "/" + job_id + "/source", "PUT", source, True)
+        job = client.api(primary, "/" + job_id)["job"]
+        client.api(primary, "/" + job_id + "/submit", "POST", {"revision": job["revision"]})
+        job = wait_report()
+        # A second pass reuses the immutable server upload without another upload.
+        queued = client.api(
+            primary, "/" + job_id + "/diagnose", "POST", {"revision": job["revision"]}
+        )
+        if queued.get("job", {}).get("purpose") != "diagnostic":
+            raise CanaryError("The server did not queue the diagnostic pass.")
+        wait_report()
+        denied()
+        return True
+    finally:
+        client.api(primary, "/" + job_id, "DELETE")
+
+
 def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
     client = client or CanaryClient()
     accounts, job_id, primary = [], None, None
@@ -191,9 +272,13 @@ def run_canary(client=None, *, sleep=time.sleep, monotonic=time.monotonic):
                 or record["units"] != units
             ):
                 raise CanaryError("The live artifact hash, length or units failed.")
+        diagnostics = capabilities.get("diagnosticProtocol") == 1
+        if diagnostics:
+            run_diagnostic_canary(client, primary, outsider, sleep=sleep, monotonic=monotonic)
         return {
             "passed": True,
             "progressTelemetry": capabilities.get("progressProtocol") == 1,
+            "serverDiagnostics": diagnostics,
             "dimensionsMm": [40, 30, 20],
             "twoAccountIsolation": True,
             "artifacts": ["step", "glb", "stl", "manifest"],
@@ -239,6 +324,11 @@ def main(argv=None):
             "Live progress telemetry was negotiated and verified."
             if result["progressTelemetry"]
             else "This app version does not advertise native progress telemetry."
+        )
+        print(
+            "Live server diagnostics passed: automatic failure report, private source reuse, no model publication and owner-only report access."
+            if result["serverDiagnostics"]
+            else "This app version does not advertise server diagnostics."
         )
         return 0
     except (CanaryError, BridgeError) as error:

@@ -91,12 +91,19 @@ def main():
     request = json.loads(request_path.read_text())
     try:
         apply_limits(Limits(**request["limits"]))
-        result = execute(request, directory)
+        if request.get("command") == "diagnose":
+            from .diagnostics import diagnose
+
+            result = {"ok": True, "report": diagnose(request, directory)}
+        else:
+            result = execute(request, directory)
     except Exception as error:
         from .failures import MESSAGES, failure_code, failure_context
         from .progress import read_progress
 
         code = failure_code(error)
+        from .diagnostics import diagnostic_report
+
         result = {
             "ok": False,
             "error": {
@@ -106,6 +113,7 @@ def main():
                 ),
                 "progress": read_progress(directory),
                 "diagnostic": failure_context(error),
+                "report": diagnostic_report(error, read_progress(directory)),
             },
         }
     (directory / "result.json").write_text(json.dumps(result, allow_nan=False))
