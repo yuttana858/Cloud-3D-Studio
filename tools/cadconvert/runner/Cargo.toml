@@ -1,0 +1,20 @@
+[package]
+name = "auto3d-cadconvert-proof"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+license = "MIT"
+publish = false
+
+[dependencies]
+cad-ir = { path = "../upstream/native/crates/cad-ir" }
+cad-xt = { path = "../upstream/native/crates/cad-xt" }
+cad-tess = { path = "../upstream/native/crates/cad-tess" }
+cad-export = { path = "../upstream/native/crates/cad-export" }
+xt-parser = { path = "../upstream/native/crates/xt-parser" }
+serde_json = "=1.0.151"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
