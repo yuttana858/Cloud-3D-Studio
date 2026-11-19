@@ -73,6 +73,20 @@ class ThickenTests(unittest.TestCase):
             thicken_shape(shape, 3.0, "inside")
         self.assertEqual(error.exception.code, "thicken_invalid")
 
+    def test_auto3d_rounded_product_surface_at_type2_thickness(self):
+        """Auto3D with every crease rounded: 4 mm floor and rim fillets, 10 mm skirt corners, 40 mm
+        extra material. 47 faces (closed walls written as halves). Thickens directly at 3 mm."""
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(__file__).with_name("auto3d_t1_rounded.step")
+            manifest = thicken_file(source, Path(folder, "tool"), 3.0)["manifest"]
+            report = manifest["thicken"]
+            self.assertEqual(report["source_faces"], 47)
+            self.assertEqual(manifest["cad"]["topology"]["solids"], 1)
+            self.assertEqual(report["wall_check"]["missing"] + report["wall_check"]["extra"], 0)
+            self.assertAlmostEqual(report["wall_check"]["min_thickness_mm"], 3.0, places=3)
+            expected = report["surface_area_mm2"] * 3.0
+            self.assertTrue(math.isclose(report["volume_mm3"], expected, rel_tol=0.02))
+
     def test_bounded_job_publishes_validated_step_solid(self):
         with tempfile.TemporaryDirectory() as folder:
             source, output = Path(folder, "product.step"), Path(folder, "tool")

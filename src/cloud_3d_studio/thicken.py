@@ -283,7 +283,7 @@ def thicken_step(source: Path, output: Path, thickness: float, side: str = "insi
     metrics = shape_metrics(solid)
     write_step(solid, output)
     reimport = cold_check(output)
-    compare_cad(metrics, reimport["metrics"])
+    compare_cad(metrics, reimport["metrics"], measure_rel_tol=1e-4)
     return {
         "source_units": units,
         "thicken": report,

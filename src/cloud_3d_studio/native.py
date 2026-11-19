@@ -92,14 +92,18 @@ def shape_metrics(shape) -> dict:
     }
 
 
-def compare_cad(expected: dict, actual: dict):
+def compare_cad(expected: dict, actual: dict, measure_rel_tol: float = 1e-7):
+    """Topology and bounds must survive the STEP round trip; area and volume within measure_rel_tol
+    (thickened walls use offset surfaces, whose integrated measures vary by ~1e-5 on reimport)."""
     if expected["topology"] != actual["topology"]:
         raise ConversionError("step_validation_failed", "STEP round trip changed topology.")
     for name in ("bounds_mm", "area_mm2", "volume_mm3"):
         left = expected[name] if isinstance(expected[name], list) else [expected[name]]
         right = actual[name] if isinstance(actual[name], list) else [actual[name]]
+        rel_tol = 1e-7 if name == "bounds_mm" else measure_rel_tol
         if not all(
-            math.isclose(a, b, abs_tol=1e-5, rel_tol=1e-7) for a, b in zip(left, right, strict=True)
+            math.isclose(a, b, abs_tol=1e-5, rel_tol=rel_tol)
+            for a, b in zip(left, right, strict=True)
         ):
             raise ConversionError("step_validation_failed", f"STEP round trip changed {name}.")
 

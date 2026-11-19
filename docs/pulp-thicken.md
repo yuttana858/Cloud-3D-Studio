@@ -53,10 +53,33 @@ The cause is the sharp floor creases. A thickening join has to extend each pocke
 - splitting closed faces and edges;
 - OCCT fillets, which produce C0 surfaces that the offset refuses (`BRepOffset_C0Geometry`).
 
-The fix belongs in Auto3D: tangent cubic fillets at floor creases and rims, with every tool-side radius larger than the thickness. With tangent faces the offset needs no joins. Type 2 pulp's default thickness is 3 mm, so this is required before real use.
+## Measured: every crease rounded (`tests/auto3d_t1_rounded.step`)
+
+The same tray, with Auto3D rounding every crease:
+- 4 mm tangent cubic fillets at the pocket floors, pocket rims and skirt top;
+- 10 mm skirt plan corners, so the skirt becomes one closed wall;
+- 40 mm extra material.
+
+That gives 47 faces: closed walls and blends are written as two halves, because OCCT reports a face that closes on itself as self-intersecting. The surface passes OCCT's validity and self-intersection checks, and its only free boundary is the skirt bottom.
+
+| Thickness | Result (inside, one offset, no joins) |
+| --- | --- |
+| 2 mm | One valid solid; all 1,135 samples pass; minimum thickness 2.000 mm; volume 0.5% under area × t; 6 s |
+| 3 mm (Type 2 default) | Same, minimum thickness 3.000 mm, 0.7% under; the full bounded job publishes STEP and manifest |
+| 4 mm | Same, minimum thickness 3.994 mm, 0.9% under (the 4 mm rim fillet shrinks to zero on the tool side) |
+
+What it took:
+- **Floor fillets alone were not enough.** The sharp skirt corners and skirt top still made OCCT split the floors off. Pockets plus plateau, or skirt plus plateau, each thickened fine; the full set did not.
+- **Two-part thicken-and-fuse was unreliable.** Thickening the two groups separately and fusing them gave missing wall at 2 mm and failed at 4 mm.
+- **Rounding everything worked.** With every crease tangent, OCCT offsets each face and they meet without joins.
+
+Design limits that follow, which Auto3D checks before writing:
+- **Rim radius must exceed the pulp thickness.** On the tool side the rim radius shrinks by the thickness.
+- **The plateau must hold two rim fillets.** Every strip of plateau, pocket to pocket or pocket to skirt, needs room for both. With the default 20 mm extra material the six-can tray has only 3.5 mm between the corner pockets and the skirt, so 3 mm pulp needs more extra material there.
+
+STEP round trip: offset faces reimport with area and volume within about 1e-5 relative, so thickening compares those at 1e-4. Topology and bounds stay exact.
 
 ## Next
 
-1. In Auto3D, add smooth (C2 cubic) fillets at pocket floors, pocket rims and the skirt top to the Phase 2 surface. Then repeat the table above at 3 mm.
-2. Run the Primary Products can trays through this command and record the results here.
-3. Add `purpose: thicken` to the owned-job contract in Auto3D and the gateway, with the same capability, lease, hash and publication rules as conversion. Run it through the native proof, then the live canary.
+1. Run the Primary Products can trays through Auto3D's rounded output and this command; record the results here.
+2. Add `purpose: thicken` to the owned-job contract in Auto3D and the gateway, with the same capability, lease, hash and publication rules as conversion. Run it through the native proof, then the live canary.
