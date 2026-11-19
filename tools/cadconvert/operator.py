@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -110,6 +111,7 @@ def main(argv=None):
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--job-id", default="")
     parser.add_argument("--authorized-request", default="")
+    parser.add_argument("--github-event", action="store_true")
     args = parser.parse_args(argv)
     if not args.run:
         print("Proof not requested; no credentials read or server work started.")
@@ -119,20 +121,43 @@ def main(argv=None):
     ):
         print("Invalid job reference; no work started.", file=sys.stderr)
         return 1
+    stage = "selection"
     try:
         job_id = args.job_id
+        if args.github_event:
+            if (
+                job_id
+                or args.authorized_request
+                or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+            ):
+                raise ValueError()
+            with Path(os.environ["GITHUB_EVENT_PATH"]).open("rb") as event_file:
+                event_bytes = event_file.read(65537)
+            if len(event_bytes) > 65536:
+                raise ValueError()
+            job_id = json.loads(event_bytes).get("inputs", {}).get("job_id", "")
+            if (
+                not isinstance(job_id, str)
+                or job_id
+                and not re.fullmatch(r"[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}", job_id)
+            ):
+                raise ValueError()
         if args.authorized_request:
             if job_id:
                 raise ValueError()
             job_id = selected_request(args.authorized_request)
+        stage = "vault_connection"
         settings = read_deployment("production")
+        stage = "provider_authentication"
         asyncio.run(verify_target(settings))
         import modal
 
         from tools.cadconvert.modal_proof import app, private_proof
 
+        stage = "image_startup"
         with modal.Client.from_credentials(settings["tokenId"], settings["tokenSecret"]) as client:
             with app.run(client=client, environment_name=settings["environment"]):
+                stage = "public_reference"
                 public = safe_result(private_proof.remote())
                 print("Public reference: " + json.dumps(public, separators=(",", ":")), flush=True)
                 if public["code"] != "reference_validated" or any(
@@ -140,13 +165,19 @@ def main(argv=None):
                 ):
                     return 1
                 if job_id:
-                    result = safe_result(private_proof.remote(grant(job_id)))
+                    stage = "source_capability"
+                    ref = grant(job_id)
+                    stage = "private_reader"
+                    result = safe_result(private_proof.remote(ref))
                     print("Private proof: " + json.dumps(result, separators=(",", ":")), flush=True)
                 else:
                     print("No private job selected. Public proof only.")
         return 0
     except Exception:
-        print("Proof failed; private provider/response details withheld.", file=sys.stderr)
+        print(
+            "Proof failed at " + stage + "; private provider/response details withheld.",
+            file=sys.stderr,
+        )
         return 1
 
 

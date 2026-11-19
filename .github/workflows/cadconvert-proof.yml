@@ -44,7 +44,6 @@ jobs:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PYTHONPATH: src
           MODAL_LOGLEVEL: WARNING
-          PROOF_JOB_ID: ${{ inputs.job_id }}
           PROOF_EVENT: ${{ github.event_name }}
         shell: bash
         run: |
@@ -52,5 +51,5 @@ jobs:
           if [ "$PROOF_EVENT" = push ]; then
             python -m tools.cadconvert.operator --run --authorized-request tools/cadconvert/authorized-once.json
           else
-            python -m tools.cadconvert.operator --run --job-id "$PROOF_JOB_ID"
+            python -m tools.cadconvert.operator --run --github-event
           fi
