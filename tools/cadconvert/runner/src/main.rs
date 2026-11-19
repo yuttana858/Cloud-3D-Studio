@@ -72,10 +72,13 @@ fn read_proof(input: &Path, unit: &str, output: &Path) -> Value {
     audit["meshedFaces"] = json!(mesh.faces_ok);
     audit["failedFaces"] = json!(mesh.failed.len());
     audit["triangles"] = json!(mesh.triangles);
-    if mesh.cancelled || !mesh.failed.is_empty() || mesh.faces_ok != scene_faces
-        || mesh.triangles == 0 || mesh.triangles > 2_000_000 {
-        audit["code"] = json!("mesh_incomplete"); return audit;
-    }
+    let mesh_failure = if mesh.cancelled { "mesh_cancelled" }
+        else if !mesh.failed.is_empty() { "mesh_face_failure" }
+        else if mesh.faces_ok != scene_faces { "mesh_coverage_failed" }
+        else if mesh.triangles == 0 { "mesh_empty" }
+        else if mesh.triangles > 2_000_000 { "mesh_budget_exceeded" }
+        else { "" };
+    if !mesh_failure.is_empty() { audit["code"] = json!(mesh_failure); return audit; }
     scene.meta.source.clear(); scene.meta.authoring_tool.clear();
     for (i, g) in scene.geometry.iter_mut().enumerate() { g.name = format!("body-{}", i + 1); }
     for (i, n) in scene.nodes.iter_mut().enumerate() { n.name = format!("node-{}", i + 1); }
