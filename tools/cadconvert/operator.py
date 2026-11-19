@@ -7,7 +7,6 @@ import os
 import re
 import sys
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 
 from cloud_3d_studio import HTTP_USER_AGENT
@@ -15,7 +14,6 @@ from deploy.provision_modal import control_key
 from deploy.vault_modal import (
     NoRedirect,
     read_deployment,
-    supabase_connection,
     vault_call,
     verify_target,
 )
@@ -73,44 +71,10 @@ def grant(job_id):
     return json.loads(data)
 
 
-def selected_request(path):
-    """Time-bounded one-file approval, without publishing any customer identifier."""
-    approval = json.loads(Path(path).read_text())
-    if (
-        set(approval) != {"approvedAt", "expiresAt", "selection"}
-        or approval["selection"] != "single_existing_retained_failed_x_t"
-    ):
-        raise ValueError()
-    now = datetime.now(timezone.utc)
-    approved = datetime.fromisoformat(approval["approvedAt"])
-    expires = datetime.fromisoformat(approval["expiresAt"])
-    if (expires - approved).total_seconds() > 10800 or expires <= approved or now < approved:
-        raise ValueError()
-    if now >= expires:
-        return ""  # Later code pushes run the public reference only.
-    url, headers = supabase_connection()
-    request = urllib.request.Request(
-        url
-        + "/rest/v1/auto3d_conversion_jobs?select=id,created_at&source_extension=eq.x_t&state=eq.failed&expires_at=gt."
-        + now.isoformat().replace("+00:00", "Z")
-        + "&limit=2",
-        headers=headers,
-    )
-    with urllib.request.build_opener(NoRedirect).open(request, timeout=20) as response:
-        data = response.read(4097)
-    if len(data) > 4096:
-        raise ValueError()
-    jobs = json.loads(data)
-    if len(jobs) != 1 or datetime.fromisoformat(jobs[0]["created_at"]) > approved:
-        raise ValueError()
-    return jobs[0]["id"]
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--job-id", default="")
-    parser.add_argument("--authorized-request", default="")
     parser.add_argument("--github-event", action="store_true")
     args = parser.parse_args(argv)
     if not args.run:
@@ -125,11 +89,7 @@ def main(argv=None):
     try:
         job_id = args.job_id
         if args.github_event:
-            if (
-                job_id
-                or args.authorized_request
-                or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
-            ):
+            if job_id or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch":
                 raise ValueError()
             with Path(os.environ["GITHUB_EVENT_PATH"]).open("rb") as event_file:
                 event_bytes = event_file.read(65537)
@@ -142,10 +102,6 @@ def main(argv=None):
                 and not re.fullmatch(r"[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}", job_id)
             ):
                 raise ValueError()
-        if args.authorized_request:
-            if job_id:
-                raise ValueError()
-            job_id = selected_request(args.authorized_request)
         stage = "vault_connection"
         settings = read_deployment("production")
         stage = "provider_authentication"

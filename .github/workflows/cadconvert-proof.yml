@@ -1,8 +1,5 @@
 name: Private CadConvert feasibility proof
 on:
-  push:
-    branches: [main]
-    paths: ['tools/cadconvert/**', '.github/workflows/cadconvert-proof.yml']
   workflow_dispatch:
     inputs:
       job_id:
@@ -44,12 +41,4 @@ jobs:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PYTHONPATH: src
           MODAL_LOGLEVEL: WARNING
-          PROOF_EVENT: ${{ github.event_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "$PROOF_EVENT" = push ]; then
-            python -m tools.cadconvert.operator --run --authorized-request tools/cadconvert/authorized-once.json
-          else
-            python -m tools.cadconvert.operator --run --github-event
-          fi
+        run: python -m tools.cadconvert.operator --run --github-event
