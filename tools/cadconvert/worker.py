@@ -10,6 +10,8 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
+from cloud_3d_studio import HTTP_USER_AGENT
+
 ORIGIN = "https://auto3d-5av.pages.dev"
 ENGINE = "d5d9a1b9948c575fd46b22840971360c67878362"
 UNITS = {"mm": 0.001, "cm": 0.01, "m": 1.0, "in": 0.0254, "ft": 0.3048}
@@ -84,7 +86,7 @@ def fetch_source(ref, path):
     ref = reference(ref)
     request = urllib.request.Request(
         ORIGIN + "/internal/conversion-proof/" + ref["jobId"] + "/source",
-        headers={"Authorization": "Bearer " + ref["token"], "User-Agent": "Auto3D-CAD-Proof/1"},
+        headers={"Authorization": "Bearer " + ref["token"], "User-Agent": HTTP_USER_AGENT},
     )
     digest, total = hashlib.sha256(), 0
     with urllib.request.build_opener(NoRedirect).open(request, timeout=45) as response:
@@ -140,7 +142,7 @@ def evaluate(source, unit, binary, directory, *, calibration=False):
     checks["sourceCoverage"] = "passed"
     if not 0 < output.stat().st_size <= 64 * 1024 * 1024:
         return summary("mesh_invalid", **checks)
-    scene = trimesh.load(output, force="scene", process=False)
+    scene = trimesh.load(output, force="scene", process=False, merge_primitives=True)
     # Bake GLB's metre/axis transform before checking. Weld only coincident seams
     # at 1e-8 m (0.00001 mm), far below the 0.1 mm tessellation tolerance.
     meshes = list(scene.dump())

@@ -9,6 +9,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+from cloud_3d_studio import HTTP_USER_AGENT
 from deploy.provision_modal import control_key
 from deploy.vault_modal import (
     NoRedirect,
@@ -61,7 +62,7 @@ def grant(job_id):
         headers={
             "Authorization": "Bearer " + control_key("production", runtime),
             "Content-Type": "application/json",
-            "User-Agent": "Auto3D-CAD-Proof/1",
+            "User-Agent": HTTP_USER_AGENT,
         },
     )
     with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
