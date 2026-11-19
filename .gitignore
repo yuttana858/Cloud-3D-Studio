@@ -9,3 +9,6 @@ private/
 out/
 .env
 .modal.toml
+
+# Public proof build outputs and temporary operator work.
+work/
