@@ -87,6 +87,21 @@ class ThickenTests(unittest.TestCase):
             expected = report["surface_area_mm2"] * 3.0
             self.assertTrue(math.isclose(report["volume_mm3"], expected, rel_tol=0.02))
 
+    def test_auto3d_domed_beverage_can_tray_at_type2_thickness(self):
+        """Auto3D real-world 355 ml cans: domed bases as fitted floor bands with flat caps, every
+        crease rounded, extra material raised automatically. 47 faces; thickens at 3 mm and the STEP
+        round trip stays valid (the band is smooth across its seam)."""
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(__file__).with_name("auto3d_beverage_domed.step")
+            manifest = thicken_file(source, Path(folder, "tool"), 3.0)["manifest"]
+            report = manifest["thicken"]
+            self.assertEqual(report["source_faces"], 47)
+            self.assertEqual(manifest["cad"]["topology"]["solids"], 1)
+            self.assertEqual(report["wall_check"]["missing"] + report["wall_check"]["extra"], 0)
+            self.assertGreaterEqual(report["wall_check"]["min_thickness_mm"], 2.97)
+            expected = report["surface_area_mm2"] * 3.0
+            self.assertTrue(math.isclose(report["volume_mm3"], expected, rel_tol=0.02))
+
     def test_bounded_job_publishes_validated_step_solid(self):
         with tempfile.TemporaryDirectory() as folder:
             source, output = Path(folder, "product.step"), Path(folder, "tool")
