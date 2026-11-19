@@ -114,32 +114,40 @@ def check_wall(solid, shell, thickness: float, sign: float) -> dict:
 
     intersector = IntCurvesFace_ShapeIntersector()
     intersector.Load(solid, 1e-7)
-    checked, missing, extra, measured = 0, 0, 0, []
+    checked, missing, extra, unclear, measured = 0, 0, 0, 0, []
     for face in _faces(shell):
         for point, normal in _sample_points(face):
             checked += 1
             direction = gp_Dir(normal.Multiplied(sign))
-            intersector.Perform(gp_Lin(point, direction), -thickness, 1e9)
+            intersector.Perform(gp_Lin(point, direction), -1e9, 1e9)
             hits = sorted(intersector.WParameter(i) for i in range(1, intersector.NbPnt() + 1))
             # One crossing through a shared edge reports a hit on each face: count it once.
             hits = [w for k, w in enumerate(hits) if k == 0 or w - hits[k - 1] > 1e-6]
 
+            # Crossings counted towards both ends of the line must agree on a closed solid; a line
+            # grazing a far face can drop one, which makes the sample unclear rather than wrong.
             def inside(depth, hits=hits):
-                return sum(w > depth for w in hits) % 2 == 1
+                ahead, behind = sum(w > depth for w in hits) % 2, sum(w < depth for w in hits) % 2
+                return None if ahead != behind else ahead == 1
 
-            if not inside(0.5 * thickness):
+            states = (inside(0.5 * thickness), inside(-0.25 * thickness))
+            if None in states:
+                unclear += 1
+                continue
+            if not states[0]:
                 missing += 1
-            if inside(-0.25 * thickness):
+            if states[1]:
                 extra += 1
             beyond = [w for w in hits if w > 0.05 * thickness]
             if beyond:
                 measured.append(beyond[0])
-    if not checked:
-        raise ConversionError("thicken_unchecked", "No surface samples could be checked.")
+    if not checked or unclear > 0.05 * checked:
+        raise ConversionError("thicken_unchecked", "Too few surface samples could be checked.")
     return {
         "samples": checked,
         "missing": missing,
         "extra": extra,
+        "unclear": unclear,
         "min_thickness_mm": min(measured) if measured else None,
     }
 
