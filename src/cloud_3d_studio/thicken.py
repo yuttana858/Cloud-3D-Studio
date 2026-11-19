@@ -283,7 +283,13 @@ def thicken_step(source: Path, output: Path, thickness: float, side: str = "insi
     metrics = shape_metrics(solid)
     write_step(solid, output)
     reimport = cold_check(output)
-    compare_cad(metrics, reimport["metrics"], measure_rel_tol=1e-4)
+    compare_cad(metrics, reimport["metrics"], measure_rel_tol=None)
+    # The reimported solid's mesh volume must match the written one (BRepGProp's area and volume are
+    # not stable enough on offset faces: 1.4% apart on a lugged skirt).
+    reread, _ = read_step(output)
+    written, read_back = report["volume_mm3"], mesh_volume(reread, min(0.05, thickness / 20))
+    if abs(read_back - written) > 1e-3 * written:
+        raise ConversionError("step_validation_failed", "STEP round trip changed the wall volume.")
     return {
         "source_units": units,
         "thicken": report,

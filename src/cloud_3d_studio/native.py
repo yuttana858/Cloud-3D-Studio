@@ -92,12 +92,15 @@ def shape_metrics(shape) -> dict:
     }
 
 
-def compare_cad(expected: dict, actual: dict, measure_rel_tol: float = 1e-7):
-    """Topology and bounds must survive the STEP round trip; area and volume within measure_rel_tol
-    (thickened walls use offset surfaces, whose integrated measures vary by ~1e-5 on reimport)."""
+def compare_cad(expected: dict, actual: dict, measure_rel_tol: float | None = 1e-7):
+    """Topology and bounds must survive the STEP round trip; area and volume within measure_rel_tol.
+    None skips area and volume: BRepGProp integrates offset surfaces too loosely to compare them
+    (thickening compares mesh volumes instead)."""
     if expected["topology"] != actual["topology"]:
         raise ConversionError("step_validation_failed", "STEP round trip changed topology.")
-    for name in ("bounds_mm", "area_mm2", "volume_mm3"):
+    for name in (
+        ("bounds_mm",) if measure_rel_tol is None else ("bounds_mm", "area_mm2", "volume_mm3")
+    ):
         left = expected[name] if isinstance(expected[name], list) else [expected[name]]
         right = actual[name] if isinstance(actual[name], list) else [actual[name]]
         rel_tol = 1e-7 if name == "bounds_mm" else measure_rel_tol
