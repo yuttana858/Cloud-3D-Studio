@@ -16,6 +16,11 @@ ORIGIN = "https://auto3d-5av.pages.dev"
 ENGINE = "d5d9a1b9948c575fd46b22840971360c67878362"
 UNITS = {"mm": 0.001, "cm": 0.01, "m": 1.0, "in": 0.0254, "ft": 0.3048}
 CODES = {
+    "mesh_cancelled",
+    "mesh_face_failure",
+    "mesh_coverage_failed",
+    "mesh_empty",
+    "mesh_budget_exceeded",
     "source_units_required",
     "source_unavailable",
     "source_size_invalid",
