@@ -141,8 +141,8 @@ def check_wall(solid, shell, thickness: float, sign: float) -> dict:
             beyond = [w for w in hits if w > 0.05 * thickness]
             if beyond:
                 measured.append(beyond[0])
-    if not checked or unclear > 0.05 * checked:
-        raise ConversionError("thicken_unchecked", "Too few surface samples could be checked.")
+    if not checked:
+        raise ConversionError("thicken_unchecked", "No surface samples could be checked.")
     return {
         "samples": checked,
         "missing": missing,
@@ -240,7 +240,13 @@ def thicken_shape(shape, thickness: float, side: str = "inside"):
     ):
         raise ConversionError("thicken_invalid", "The thickened wall is not one valid solid.")
     wall = check_wall(solid, shell, thickness, sign)
-    if wall["missing"] or wall["extra"] or (wall["min_thickness_mm"] or 0) < 0.99 * thickness:
+    # On a closed solid both crossing counts agree; many disagreements mean the wall is broken.
+    if (
+        wall["missing"]
+        or wall["extra"]
+        or wall["unclear"] > 0.05 * wall["samples"]
+        or (wall["min_thickness_mm"] or 0) < 0.99 * thickness
+    ):
         raise ConversionError(
             "thicken_wall_mismatch",
             "The thickened wall does not follow the surface everywhere; a fillet or corner is "

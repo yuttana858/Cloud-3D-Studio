@@ -21,7 +21,7 @@ MESSAGES = {
     "thicken_invalid": "The thickened wall is not one valid solid.",
     "thicken_wall_mismatch": "The thickened wall does not follow the surface everywhere; a fillet "
     "or corner is tighter than the thickness on the tool side.",
-    "thicken_unchecked": "Too few surface samples could be checked.",
+    "thicken_unchecked": "No surface samples could be checked.",
     "thicken_volume_mismatch": "The thickened wall's volume does not match its surface.",
 }
 
