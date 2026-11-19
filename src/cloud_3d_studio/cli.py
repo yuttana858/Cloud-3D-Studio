@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 
 from .contracts import ConversionError, capabilities
-from .jobs import convert_file, self_test
+from .jobs import convert_file, self_test, thicken_file
+from .thicken import SIDES
 
 
 def main():
@@ -18,12 +19,21 @@ def main():
     conversion.add_argument("--output", type=Path, required=True)
     conversion.add_argument("--source-unit", choices=("mm", "cm", "m", "in", "ft"))
     conversion.add_argument("--quality", choices=("standard", "fine"), default="standard")
+    thickening = commands.add_parser("thicken", help="Thicken a STEP surface into a solid wall.")
+    thickening.add_argument("source", type=Path)
+    thickening.add_argument("--output", type=Path, required=True, help="New output directory.")
+    thickening.add_argument("--thickness", type=float, required=True, help="Wall thickness in mm.")
+    thickening.add_argument("--side", choices=SIDES, default="inside")
     arguments = parser.parse_args()
     try:
         if arguments.command == "capabilities":
             result = {"ok": True, **capabilities()}
         elif arguments.command == "self-test":
             result = self_test()
+        elif arguments.command == "thicken":
+            result = thicken_file(
+                arguments.source, arguments.output, arguments.thickness, arguments.side
+            )
         else:
             result = convert_file(
                 arguments.source, arguments.output, arguments.source_unit, arguments.quality

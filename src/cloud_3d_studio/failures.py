@@ -12,6 +12,17 @@ MESSAGES = {
     "complexity_limit": "The source exceeded the bounded conversion resource limits.",
     "invalid_geometry": "The source did not produce complete valid geometry.",
     "worker_failed": "The native converter stopped unexpectedly.",
+    "thicken_no_faces": "The source has no surface faces to thicken.",
+    "thicken_source_solid": "The source is already a solid; send the product-side surface.",
+    "thicken_disconnected": "The surface faces do not join into one connected surface.",
+    "thicken_invalid_thickness": "Thickness must be above 0 and at most 20 mm.",
+    "thicken_invalid_side": "Side must be inside or outside.",
+    "thicken_failed": "OCCT could not offset the surface.",
+    "thicken_invalid": "The thickened wall is not one valid solid.",
+    "thicken_wall_mismatch": "The thickened wall does not follow the surface everywhere; a fillet "
+    "or corner is tighter than the thickness on the tool side.",
+    "thicken_unchecked": "No surface samples could be checked.",
+    "thicken_volume_mismatch": "The thickened wall's volume does not match its surface.",
 }
 
 

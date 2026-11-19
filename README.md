@@ -2,7 +2,7 @@
 
 Shared compute services for Auto3D. The first implementation is a CPU-only CAD conversion foundation: supported Parasolid and STEP input to validated STEP, GLB and STL plus a unit/provenance manifest. Blender rendering remains a later, separate worker.
 
-Version: **0.5.0**. See [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
+Version: **0.6.0**. See [molded pulp thickening](docs/pulp-thicken.md), [goals and milestones](docs/conversion-roadmap.md), [format support](docs/formats.md), [operations](docs/operations.md), [credential bridge](docs/modal-credentials.md), and the [Auto3D connector specification](https://github.com/yuttana858/Auto3D/blob/main/docs/parasolid-modal-integration-plan.md).
 
 ## Local development
 
@@ -23,6 +23,12 @@ Conversion writes a new output directory and preserves the input:
 ```bash
 uv run cloud3d convert /path/to/product.step --output out/product
 uv run cloud3d convert /path/to/product.x_t --source-unit m --output out/product
+```
+
+Molded pulp tool side (local; not yet a cloud job). Thickens a product-side STEP surface into a validated STEP solid:
+
+```bash
+uv run cloud3d thicken /path/to/product-surface.step --thickness 1.5 --side inside --output out/tool
 ```
 
 The Parasolid coordinate unit must be explicit; `m` above is only an example. STEP reads its declared units. Inputs and outputs stay local for these commands. The source repository is public: private CAD belongs outside Git or under ignored `private/`, and outputs under ignored `out/`.

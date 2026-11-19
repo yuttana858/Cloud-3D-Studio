@@ -117,12 +117,15 @@ def run_process(
     return result
 
 
-def publish(staged: Path, destination: Path):
+ARTIFACT_NAMES = ("model.step", "model.glb", "model.stl", "manifest.json")
+
+
+def publish(staged: Path, destination: Path, names=ARTIFACT_NAMES):
     # Exclusive directory creation preserves even a racing empty destination.
     destination.mkdir(mode=0o700)
     created = []
     try:
-        for name in ("model.step", "model.glb", "model.stl", "manifest.json"):
+        for name in names:
             target = destination / name
             os.link(staged / name, target)
             created.append(target)
@@ -236,6 +239,100 @@ def convert_file(
             )
         try:
             publish(staged, output)
+        except FileExistsError:
+            raise ConversionError(
+                "output_exists", "An output directory appeared; no existing files were replaced."
+            ) from None
+        return {"ok": True, "output_directory": str(output), "manifest": manifest}
+
+
+def thicken_file(
+    source: Path,
+    output: Path,
+    thickness_mm: float,
+    side: str = "inside",
+    limits: Limits | None = None,
+    *,
+    cancel_check=None,
+    on_progress=None,
+) -> dict:
+    """Molded-pulp tool side: a STEP surface thickened into a validated STEP solid.
+
+    Same isolation as convert_file: frozen input, bounded native child, hash-checked publication of
+    model.step and manifest.json into a new output directory."""
+    if sys.platform != "linux":
+        raise ConversionError("linux_required", "Use Linux, WSL or the Modal worker.")
+    limits = limits or Limits()
+    output = output.absolute()
+    if output.exists() or output.is_symlink():
+        raise ConversionError(
+            "output_exists", "Choose a new output directory; existing files are preserved."
+        )
+    if not output.parent.is_dir():
+        raise ConversionError("output_parent_missing", "Create the output parent directory first.")
+    if source.suffix.lower().lstrip(".") not in ("step", "stp"):
+        raise ConversionError("unsupported_format", "Thickening reads STEP surfaces only.")
+    with tempfile.TemporaryDirectory(prefix=".cloud3d-", dir=output.parent) as temporary:
+        directory = Path(temporary)
+        frozen = frozen_input(source, directory, limits.input_bytes)
+        request = {
+            "command": "thicken",
+            "source": str(frozen),
+            "thickness_mm": thickness_mm,
+            "side": side,
+            "limits": asdict(limits),
+        }
+        request_path = directory / "request.json"
+        request_path.write_text(json.dumps(request, allow_nan=False))
+        result = run_process(
+            [sys.executable, "-m", "cloud_3d_studio.worker", str(request_path)],
+            directory,
+            limits.timeout_seconds,
+            cancel_check=cancel_check,
+            on_progress=on_progress,
+        )
+        if not result["ok"]:
+            raise ConversionError(result["error"]["code"], result["error"]["message"])
+        manifest = result.get("manifest")
+        if not (
+            isinstance(manifest, dict)
+            and manifest.get("operation") == "thicken"
+            and manifest.get("status") == "validated"
+            and isinstance(manifest.get("cad_validation"), dict)
+            and manifest["cad_validation"].get("passed") is True
+            and isinstance(manifest.get("artifacts"), dict)
+            and set(manifest["artifacts"]) == {"step"}
+            and isinstance(manifest.get("source"), dict)
+            and manifest["source"].get("sha256") == digest(frozen)
+        ):
+            raise ConversionError("validation_failed", "Thickening evidence is incomplete.")
+        staged, artifact = directory / "artifacts", manifest["artifacts"]["step"]
+        path = staged / "model.step"
+        if (
+            not isinstance(artifact, dict)
+            or artifact.get("filename") != "model.step"
+            or path.is_symlink()
+            or not path.is_file()
+            or path.stat().st_size != artifact.get("bytes")
+            or not 0 < path.stat().st_size <= limits.output_bytes
+            or artifact.get("units") != "mm"
+            or digest(path) != artifact.get("sha256")
+        ):
+            raise ConversionError(
+                "artifact_hash_mismatch", "Artifact identity verification failed."
+            )
+        manifest_file = staged / "manifest.json"
+        if (
+            manifest_file.is_symlink()
+            or not manifest_file.is_file()
+            or manifest_file.stat().st_size > 16 * 1024 * 1024
+            or json.loads(manifest_file.read_text()) != manifest
+        ):
+            raise ConversionError(
+                "validation_failed", "Published manifest differs from validation evidence."
+            )
+        try:
+            publish(staged, output, ("model.step", "manifest.json"))
         except FileExistsError:
             raise ConversionError(
                 "output_exists", "An output directory appeared; no existing files were replaced."
