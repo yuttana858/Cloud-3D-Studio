@@ -11,7 +11,7 @@ from tray_fixture import FILLET_MM, make_tray_surface
 
 from cloud_3d_studio.contracts import ConversionError
 from cloud_3d_studio.jobs import thicken_file
-from cloud_3d_studio.native import write_step
+from cloud_3d_studio.native import read_step, write_step
 from cloud_3d_studio.thicken import thicken_shape
 
 
@@ -28,6 +28,7 @@ class ThickenTests(unittest.TestCase):
                 self.assertGreater(report["wall_check"]["samples"], 500)
                 self.assertEqual(report["wall_check"]["missing"], 0)
                 self.assertEqual(report["wall_check"]["extra"], 0)
+                self.assertAlmostEqual(report["wall_check"]["min_thickness_mm"], 1.5, places=3)
                 # Thin wall: volume ~ area x thickness; curvature shifts it a few percent.
                 expected = report["surface_area_mm2"] * 1.5
                 self.assertTrue(math.isclose(report["volume_mm3"], expected, rel_tol=0.03))
@@ -54,6 +55,23 @@ class ThickenTests(unittest.TestCase):
             with self.subTest(code=code), self.assertRaises(ConversionError) as error:
                 thicken_shape(*arguments)
             self.assertEqual(error.exception.code, code)
+
+    def test_auto3d_lofted_product_surface(self):
+        """Auto3D Phase 2 output (6-can tray, 17 smooth faces, open skirt bottom)."""
+        shape, units = read_step(Path(__file__).with_name("auto3d_t1_product.step"))
+        self.assertEqual(units, ["millimetre"])
+        _, report = thicken_shape(shape, 1.5, "inside")
+        self.assertEqual(report["source_faces"], 17)
+        self.assertEqual(report["wall_check"]["missing"] + report["wall_check"]["extra"], 0)
+        self.assertAlmostEqual(report["wall_check"]["min_thickness_mm"], 1.5, places=3)
+        # The mesh volume follows area x thickness (BRepGProp's integral is ~7,000 mm3 low here).
+        expected = report["surface_area_mm2"] * 1.5
+        self.assertTrue(math.isclose(report["volume_mm3"], expected, rel_tol=0.03))
+        # Sharp floor creases: OCCT's offset joins break from 2 mm (floors come off as separate
+        # pieces). Smooth fillets in the Auto3D surface are the fix; until then this is refused.
+        with self.assertRaises(ConversionError) as error:
+            thicken_shape(shape, 3.0, "inside")
+        self.assertEqual(error.exception.code, "thicken_invalid")
 
     def test_bounded_job_publishes_validated_step_solid(self):
         with tempfile.TemporaryDirectory() as folder:
