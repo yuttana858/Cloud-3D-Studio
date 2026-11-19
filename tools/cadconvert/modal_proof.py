@@ -48,6 +48,8 @@ image = (
     max_containers=1,
     scaledown_window=2,
     enable_memory_snapshot=False,
+    restrict_modal_access=True,
+    single_use_containers=True,
 )
 def private_proof(reference=None):
     # Raw Python/OCCT/Rust stdout, stderr and intermediate audits stay in this
